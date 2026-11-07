@@ -1,0 +1,116 @@
+# Development (Windows/local):  docker compose up -d db
+# Production (Hetzner):         docker compose --profile full up -d --build
+#   One-off tools:              docker compose --profile tools run --rm tools npm run db:seed
+#                               docker compose --profile tools run --rm -e ADMIN_EMAIL=... -e ADMIN_PASSWORD=... tools npm run admin:create
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hecotec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: hecotec_wms
+    # Only reachable from this machine (never from the internet)
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    command: >
+      postgres -c max_connections=200 -c shared_buffers=256MB
+      -c idle_in_transaction_session_timeout=60000
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hecotec -d hecotec_wms"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Applies database migrations, then exits. The app starts only after it succeeded.
+  migrate:
+    build: { context: ., target: build }
+    image: hecotec-wms-tools
+    profiles: ["full"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public
+    command: ["npx", "prisma", "migrate", "deploy"]
+    restart: "no"
+
+  app:
+    build: { context: ., target: run }
+    image: hecotec-wms-app
+    restart: unless-stopped
+    profiles: ["full"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public&connection_limit=20&pool_timeout=15
+      APP_URL: ${APP_URL:-http://localhost}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      UPLOAD_DIR: /data/uploads
+    expose:
+      - "3000"
+    volumes:
+      - uploads:/data/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  # HTTPS reverse proxy — obtains and renews Let's Encrypt certificates automatically for $DOMAIN
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["full"]
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env (e.g. anbar.hecotec.az)}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env (certificate notices)}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    profiles: ["full"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup-loop.sh:/backup-loop.sh:ro
+    entrypoint: ["/bin/sh", "/backup-loop.sh"]
+
+  # One-off administration (seed, create admin, demo data). Same image as "migrate".
+  tools:
+    image: hecotec-wms-tools
+    build: { context: ., target: build }
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public
+    restart: "no"
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

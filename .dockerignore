@@ -1,0 +1,11 @@
+node_modules
+.next
+.env
+backups
+uploads
+test-results
+playwright-report
+*.xlsm
+*.xlsx
+HECOTEC_Anbar_Sistemi.html
+.git

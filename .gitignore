@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env.test
+*.tsbuildinfo
+next-env.d.ts
+backups/
+uploads/
+playwright-report/
+test-results/
+# Real company source data (contains personal names) — never commit
+*.xlsm
+ANBAR*.xlsx
+# Company source documents — kept out of the (public) repository
+HECOTEC_Material_Request_Form.xlsx
+HECOTEC_Anbar_Sistemi.html
+HECOTEC_Claude_Master_Prompt.md

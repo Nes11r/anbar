@@ -1,0 +1,875 @@
+// HECOTEC Warehouse, Procurement & Project Material Management System
+// Data model v1. See docs/architecture.md for rules (ledger is append-only, balances are a projection).
+
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  WAREHOUSE_MANAGER
+  STOREKEEPER
+  PROCUREMENT
+  PROJECT_MANAGER
+  AUDITOR
+}
+
+/// PPE / uniform assignment. NOT_APPLICABLE is only allowed for non-uniform materials.
+enum WorkerGroup {
+  ENGINEER
+  WORKER
+  BOTH
+  NOT_APPLICABLE
+}
+
+/// Employee professional group (no BOTH here)
+enum EmployeeGroup {
+  ENGINEER
+  WORKER
+}
+
+enum SizeType {
+  NONE
+  CLOTHING_NUMERIC
+  CLOTHING_LETTER
+  SHOE_EU
+  OTHER
+}
+
+enum WarehouseType {
+  NORMAL
+  QUARANTINE
+}
+
+enum LedgerEntryType {
+  OPENING
+  RECEIPT
+  ISSUE
+  RETURN_IN
+  RETURN_OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT_PLUS
+  ADJUSTMENT_MINUS
+  RESERVATION
+  RESERVATION_RELEASE
+}
+
+enum LedgerDocType {
+  INVENTORY_COUNT
+  GOODS_RECEIPT
+  STOCK_DOCUMENT
+  RESERVATION
+}
+
+enum DocStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+  REVERSED
+}
+
+/// Issue / Return / Transfer / Adjustment documents share one header table.
+enum StockDocKind {
+  ISSUE_PROJECT
+  ISSUE_EMPLOYEE
+  RETURN_FROM_PROJECT
+  RETURN_FROM_EMPLOYEE
+  RETURN_TO_SUPPLIER
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum ReturnCondition {
+  GOOD
+  DEFECTIVE
+}
+
+enum InventoryCountMode {
+  OPENING
+  CYCLE
+}
+
+enum MRRequestType {
+  NEW
+  REVISION
+  REPLACEMENT
+  CANCELLATION
+}
+
+enum MRPriority {
+  NORMAL
+  URGENT
+  EMERGENCY
+}
+
+enum MRStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  RETURNED
+  APPROVED
+  REJECTED
+  IN_SOURCING
+  PARTIALLY_ORDERED
+  FULLY_ORDERED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CLOSED
+  CANCELLED
+}
+
+enum ApprovalDecision {
+  PENDING
+  APPROVED
+  REJECTED
+  REVISE
+  SKIPPED
+}
+
+enum ApprovalCondition {
+  ALWAYS
+  URGENT_OR_PM_THRESHOLD
+  GD_THRESHOLD
+}
+
+enum POStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum QualityStatus {
+  ACCEPTED
+  ACCEPTED_WITH_NCR
+  REJECTED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  RELEASED
+  CONSUMED
+}
+
+enum ImportDataType {
+  CATALOG
+  OPENING_BALANCE
+  HISTORICAL_ISSUES
+  OPEN_ORDERS
+  SUMMARY_REPORT
+}
+
+enum ImportStatus {
+  UPLOADED
+  MAPPED
+  COMMITTED
+  ROLLED_BACK
+  FAILED
+}
+
+enum ImportRowAction {
+  CREATE
+  MATCH
+  SKIP
+  ERROR
+}
+
+enum SourceConfidence {
+  MANUAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ───────────────────────── Identity ─────────────────────────
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          UserRole
+  isActive      Boolean   @default(true)
+  failedLogins  Int       @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  mustChangePwd Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id // sha256(token)
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ip        String?
+  userAgent String?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ───────────────────────── Master data ─────────────────────────
+
+model Warehouse {
+  id        String        @id @default(uuid()) @db.Uuid
+  code      String        @unique
+  name      String
+  type      WarehouseType @default(NORMAL)
+  location  String?
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("warehouses")
+}
+
+model Category {
+  id        String     @id @default(uuid()) @db.Uuid
+  code      String     @unique
+  nameAz    String
+  nameEn    String?
+  /// Uniform / PPE categories require ENGINEER, WORKER or BOTH (never NOT_APPLICABLE)
+  isUniform Boolean    @default(false)
+  parentId  String?    @db.Uuid
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  isActive  Boolean    @default(true)
+  sortOrder Int        @default(0)
+  materials Material[]
+
+  @@map("categories")
+}
+
+/// Codes mirror the MR form "Lists" sheet (PCS, SET, M, M2 ...). Never change an existing code.
+model Unit {
+  code          String     @id
+  labelAz       String
+  labelEn       String
+  allowsDecimal Boolean    @default(false)
+  isActive      Boolean    @default(true)
+  sortOrder     Int        @default(0)
+  materials     Material[]
+
+  @@map("units")
+}
+
+model Supplier {
+  id        String          @id @default(uuid()) @db.Uuid
+  code      String?         @unique
+  name      String
+  contact   String?
+  phone     String?
+  email     String?
+  notes     String?
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  materials Material[]
+  orders    PurchaseOrder[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+/// Product family. Each size/colour is a MaterialVariant with its own SKU and its own balance.
+model Material {
+  id               String            @id @default(uuid()) @db.Uuid
+  code             String            @unique
+  /// Original product code from supplier / Excel. Not unique ("N/A", "AFTekstil" repeat across different products).
+  originalCode     String?
+  nameAz           String
+  nameEn           String?
+  categoryId       String            @db.Uuid
+  category         Category          @relation(fields: [categoryId], references: [id])
+  subcategory      String?
+  workerGroup      WorkerGroup       @default(NOT_APPLICABLE)
+  brand            String?
+  model            String?
+  description      String?
+  sizeType         SizeType          @default(NONE)
+  color            String?
+  unitCode         String
+  unit             Unit              @relation(fields: [unitCode], references: [code])
+  supplierId       String?           @db.Uuid
+  supplier         Supplier?         @relation(fields: [supplierId], references: [id])
+  minStock         Decimal           @default(0) @db.Decimal(18, 3)
+  isActive         Boolean           @default(true)
+  photoId          String?           @db.Uuid
+  notes            String?
+  sourceConfidence SourceConfidence  @default(MANUAL)
+  importBatchId    String?           @db.Uuid
+  importRowId      String?           @db.Uuid
+  createdById      String?           @db.Uuid
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  version          Int               @default(1)
+  variants         MaterialVariant[]
+
+  @@index([categoryId])
+  @@index([workerGroup])
+  @@index([isActive])
+  @@index([originalCode])
+  @@map("materials")
+}
+
+model MaterialVariant {
+  id            String   @id @default(uuid()) @db.Uuid
+  materialId    String   @db.Uuid
+  material      Material @relation(fields: [materialId], references: [id])
+  sku           String   @unique
+  /// Normalised size label ("48", "XL", "41"); empty string when the material has no sizes.
+  size          String   @default("")
+  color         String   @default("")
+  barcode       String?  @unique
+  /// null = inherit material.minStock
+  minStock      Decimal? @db.Decimal(18, 3)
+  isActive      Boolean  @default(true)
+  importBatchId String?  @db.Uuid
+  importRowId   String?  @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  balances StockBalance[]
+
+  @@unique([materialId, size, color])
+  @@map("material_variants")
+}
+
+model Project {
+  id          String     @id @default(uuid()) @db.Uuid
+  code        String     @unique
+  name        String
+  client      String?
+  location    String?
+  startDate   DateTime?  @db.Date
+  endDate     DateTime?  @db.Date
+  managerName String?
+  isActive    Boolean    @default(true)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  employees   Employee[]
+
+  @@map("projects")
+}
+
+model Employee {
+  id         String        @id @default(uuid()) @db.Uuid
+  code       String        @unique
+  fullName   String
+  group      EmployeeGroup
+  position   String?
+  department String?
+  projectId  String?       @db.Uuid
+  project    Project?      @relation(fields: [projectId], references: [id])
+  isActive   Boolean       @default(true)
+  notes      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([fullName])
+  @@map("employees")
+}
+
+// ───────────────────────── Stock ledger ─────────────────────────
+
+/// Append-only. UPDATE/DELETE are blocked by a database trigger. Corrections are reversal entries.
+model StockLedgerEntry {
+  id             BigInt          @id @default(autoincrement())
+  entryType      LedgerEntryType
+  warehouseId    String          @db.Uuid
+  variantId      String          @db.Uuid
+  /// Always > 0. Sign comes from entryType.
+  qty            Decimal         @db.Decimal(18, 3)
+  docType        LedgerDocType
+  docId          String          @db.Uuid
+  docLineId      String?         @db.Uuid
+  docNumber      String
+  projectId      String?         @db.Uuid
+  employeeId     String?         @db.Uuid
+  movementDate   DateTime        @db.Date
+  postedAt       DateTime        @default(now())
+  userId         String          @db.Uuid
+  reason         String?
+  idempotencyKey String          @unique
+  reversalOfId   BigInt?         @unique
+
+  @@index([variantId, warehouseId])
+  @@index([warehouseId])
+  @@index([projectId, variantId])
+  @@index([employeeId])
+  @@index([docType, docId])
+  @@index([movementDate])
+  @@index([entryType, movementDate])
+  @@map("stock_ledger")
+}
+
+/// Materialised projection of the ledger, updated in the same transaction as each ledger write.
+/// CHECK constraints (migration SQL) forbid negative on_hand / reserved and reserved > on_hand.
+model StockBalance {
+  warehouseId String          @db.Uuid
+  variantId   String          @db.Uuid
+  variant     MaterialVariant @relation(fields: [variantId], references: [id])
+  onHand      Decimal         @default(0) @db.Decimal(18, 3)
+  reserved    Decimal         @default(0) @db.Decimal(18, 3)
+  updatedAt   DateTime        @updatedAt
+
+  @@id([warehouseId, variantId])
+  @@index([variantId])
+  @@map("stock_balances")
+}
+
+model Reservation {
+  id          String            @id @default(uuid()) @db.Uuid
+  number      String            @unique
+  warehouseId String            @db.Uuid
+  variantId   String            @db.Uuid
+  projectId   String?           @db.Uuid
+  mrLineId    String?           @db.Uuid
+  qty         Decimal           @db.Decimal(18, 3)
+  status      ReservationStatus @default(ACTIVE)
+  reason      String?
+  createdById String            @db.Uuid
+  createdAt   DateTime          @default(now())
+  releasedAt  DateTime?
+
+  @@index([variantId, warehouseId, status])
+  @@map("reservations")
+}
+
+// ───────────────────────── Inventory counts ─────────────────────────
+
+model InventoryCount {
+  id           String               @id @default(uuid()) @db.Uuid
+  number       String               @unique
+  mode         InventoryCountMode
+  warehouseId  String               @db.Uuid
+  countDate    DateTime             @db.Date
+  status       DocStatus            @default(DRAFT)
+  countedBy    String
+  notes        String?
+  createdById  String               @db.Uuid
+  approvedById String?              @db.Uuid
+  approvedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  version      Int                  @default(1)
+  lines        InventoryCountLine[]
+
+  @@index([status])
+  @@map("inventory_counts")
+}
+
+model InventoryCountLine {
+  id            String         @id @default(uuid()) @db.Uuid
+  countId       String         @db.Uuid
+  count         InventoryCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  variantId     String         @db.Uuid
+  countedQty    Decimal        @db.Decimal(18, 3)
+  /// Snapshot of system on_hand at approval time (difference report)
+  systemQty     Decimal?       @db.Decimal(18, 3)
+  note          String?
+  importBatchId String?        @db.Uuid
+  importRowId   String?        @db.Uuid
+
+  @@unique([countId, variantId])
+  @@map("inventory_count_lines")
+}
+
+// ───────────────────────── Procurement ─────────────────────────
+
+model MaterialRequest {
+  id                  String          @id @default(uuid()) @db.Uuid
+  /// MR-[Project Code]-[Discipline Code]-[Sequence]
+  mrNumber            String
+  revision            String          @default("00")
+  projectId           String          @db.Uuid
+  discipline          String
+  disciplineOther     String?
+  projectPhase        String?
+  requestType         MRRequestType   @default(NEW)
+  priority            MRPriority      @default(NORMAL)
+  supplyCategory      String?
+  procurementRoute    String?
+  supersedesMrNumber  String?
+  revisionReason      String?
+  dateRaised          DateTime        @db.Date
+  requiredOnSiteDate  DateTime        @db.Date
+  requesterId         String          @db.Uuid
+  requesterName       String
+  requesterPosition   String?
+  justification       String?
+  notes               String?
+  estimatedValue      Decimal         @default(0) @db.Decimal(18, 2)
+  currency            String          @default("AZN")
+  deliveryWarehouseId String?         @db.Uuid
+  referenceDocs       Json            @default("[]")
+  /// Remaining MR-form sections (technical, delivery, budget) keyed by System Export field_id
+  formData            Json            @default("{}")
+  status              MRStatus        @default(DRAFT)
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  version             Int             @default(1)
+  lines               MRLine[]
+  approvals           MRApproval[]
+  orders              PurchaseOrder[]
+
+  @@unique([mrNumber, revision])
+  @@index([status])
+  @@index([projectId])
+  @@map("material_requests")
+}
+
+model MRLine {
+  id                    String          @id @default(uuid()) @db.Uuid
+  mrId                  String          @db.Uuid
+  mr                    MaterialRequest @relation(fields: [mrId], references: [id], onDelete: Cascade)
+  lineNo                Int
+  /// Optional link to catalogue. A PO line always needs a variant.
+  variantId             String?         @db.Uuid
+  materialCode          String?
+  description           String
+  size                  String?
+  gradeStandard         String?
+  uomCode               String
+  qtyRequired           Decimal         @db.Decimal(18, 3)
+  qtyInStock            Decimal         @default(0) @db.Decimal(18, 3)
+  surplusPct            Decimal         @default(0) @db.Decimal(6, 2)
+  netQtyToOrder         Decimal         @db.Decimal(18, 3)
+  estUnitPrice          Decimal?        @db.Decimal(18, 2)
+  requiredDate          DateTime?       @db.Date
+  remarks               String?
+  poLines               POLine[]
+
+  @@unique([mrId, lineNo])
+  @@map("mr_lines")
+}
+
+model MRApproval {
+  id           String           @id @default(uuid()) @db.Uuid
+  mrId         String           @db.Uuid
+  mr           MaterialRequest  @relation(fields: [mrId], references: [id], onDelete: Cascade)
+  step         Int
+  roleCode     String
+  roleLabel    String
+  required     Boolean
+  allowedRoles UserRole[]
+  decision     ApprovalDecision @default(PENDING)
+  approverId   String?          @db.Uuid
+  approverName String?
+  decidedAt    DateTime?
+  comment      String?
+
+  @@unique([mrId, step])
+  @@map("mr_approvals")
+}
+
+/// Admin-configurable MR approval route. Defaults copied from MR form Section 7.
+model ApprovalStepConfig {
+  step           Int               @id
+  roleCode       String            @unique
+  labelAz        String
+  responsibility String?
+  condition      ApprovalCondition @default(ALWAYS)
+  isActive       Boolean           @default(true)
+  allowedRoles   UserRole[]
+
+  @@map("approval_step_config")
+}
+
+model PurchaseOrder {
+  id             String          @id @default(uuid()) @db.Uuid
+  poNumber       String          @unique
+  supplierId     String          @db.Uuid
+  supplier       Supplier        @relation(fields: [supplierId], references: [id])
+  mrId           String?         @db.Uuid
+  mr             MaterialRequest? @relation(fields: [mrId], references: [id])
+  status         POStatus        @default(DRAFT)
+  orderDate      DateTime        @db.Date
+  expectedDate   DateTime?       @db.Date
+  currency       String          @default("AZN")
+  notes          String?
+  /// Required when PO is created without an approved MR (special permission, audited)
+  overrideReason String?
+  cancelReason   String?
+  createdById    String          @db.Uuid
+  approvedById   String?         @db.Uuid
+  approvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  version        Int             @default(1)
+  lines          POLine[]
+  receipts       GoodsReceipt[]
+
+  @@index([status])
+  @@index([supplierId])
+  @@map("purchase_orders")
+}
+
+model POLine {
+  id          String        @id @default(uuid()) @db.Uuid
+  poId        String        @db.Uuid
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  lineNo      Int
+  variantId   String        @db.Uuid
+  mrLineId    String?       @db.Uuid
+  mrLine      MRLine?       @relation(fields: [mrLineId], references: [id])
+  qtyOrdered  Decimal       @db.Decimal(18, 3)
+  /// Projection of POSTED GRN accepted+rejected quantities, maintained in the posting transaction
+  qtyReceived Decimal       @default(0) @db.Decimal(18, 3)
+  unitPrice   Decimal?      @db.Decimal(18, 2)
+  notes       String?
+
+  @@unique([poId, lineNo])
+  @@map("po_lines")
+}
+
+model GoodsReceipt {
+  id             String        @id @default(uuid()) @db.Uuid
+  grnNumber      String        @unique
+  poId           String        @db.Uuid
+  po             PurchaseOrder @relation(fields: [poId], references: [id])
+  warehouseId    String        @db.Uuid
+  receivedDate   DateTime      @db.Date
+  receiverName   String
+  deliveryNoteNo String?
+  status         DocStatus     @default(DRAFT)
+  notes          String?
+  createdById    String        @db.Uuid
+  postedById     String?       @db.Uuid
+  postedAt       DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  version        Int           @default(1)
+  lines          GRNLine[]
+
+  @@index([poId])
+  @@index([status])
+  @@map("goods_receipts")
+}
+
+model GRNLine {
+  id            String        @id @default(uuid()) @db.Uuid
+  grnId         String        @db.Uuid
+  grn           GoodsReceipt  @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  poLineId      String        @db.Uuid
+  variantId     String        @db.Uuid
+  qtyReceived   Decimal       @db.Decimal(18, 3)
+  qtyRejected   Decimal       @default(0) @db.Decimal(18, 3)
+  qualityStatus QualityStatus @default(ACCEPTED)
+  note          String?
+
+  @@unique([grnId, poLineId])
+  @@map("grn_lines")
+}
+
+// ───────────────────────── Issue / Return / Transfer / Adjustment ─────────────────────────
+
+model StockDocument {
+  id                String          @id @default(uuid()) @db.Uuid
+  number            String          @unique
+  kind              StockDocKind
+  status            DocStatus       @default(DRAFT)
+  warehouseId       String          @db.Uuid
+  /// TRANSFER destination; RETURN of DEFECTIVE goods may target a QUARANTINE warehouse per line
+  toWarehouseId     String?         @db.Uuid
+  projectId         String?         @db.Uuid
+  employeeId        String?         @db.Uuid
+  supplierId        String?         @db.Uuid
+  recipientName     String?
+  purpose           String?
+  reason            String?
+  externalRef       String?
+  docDate           DateTime        @db.Date
+  notes             String?
+  reversalOfId      String?         @unique @db.Uuid
+  createdById       String          @db.Uuid
+  postedById        String?         @db.Uuid
+  postedAt          DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  version           Int             @default(1)
+  lines             StockDocLine[]
+
+  @@index([kind, status])
+  @@index([projectId])
+  @@index([employeeId])
+  @@index([docDate])
+  @@map("stock_documents")
+}
+
+model StockDocLine {
+  id             String           @id @default(uuid()) @db.Uuid
+  docId          String           @db.Uuid
+  doc            StockDocument    @relation(fields: [docId], references: [id], onDelete: Cascade)
+  lineNo         Int
+  variantId      String           @db.Uuid
+  qty            Decimal          @db.Decimal(18, 3)
+  /// ADJUSTMENT only: +1 / -1
+  direction      Int              @default(-1)
+  condition      ReturnCondition?
+  /// Return of defective goods → quarantine warehouse
+  targetWarehouseId String?       @db.Uuid
+  /// Worker-group mismatch override (EMPLOYEE issue)
+  overrideReason String?
+  note           String?
+
+  @@unique([docId, lineNo])
+  @@map("stock_doc_lines")
+}
+
+// ───────────────────────── Historical data (never affects balances) ─────────────────────────
+
+model HistoricalIssue {
+  id            String    @id @default(uuid()) @db.Uuid
+  employeeName  String
+  employeeId    String?   @db.Uuid
+  itemText      String
+  modelText     String?
+  productCode   String?
+  sizeText      String?
+  qty           Decimal?  @db.Decimal(18, 3)
+  issueDate     DateTime? @db.Date
+  rawDate       String?
+  comment       String?
+  variantId     String?   @db.Uuid
+  importBatchId String    @db.Uuid
+  importRowId   String    @db.Uuid
+  createdAt     DateTime  @default(now())
+
+  @@index([employeeName])
+  @@index([importBatchId])
+  @@map("historical_issues")
+}
+
+// ───────────────────────── Excel import ─────────────────────────
+
+model ImportBatch {
+  id           String         @id @default(uuid()) @db.Uuid
+  fileName     String
+  fileHash     String
+  fileSize     Int
+  sheetName    String?
+  sheetNames   String[]
+  dataType     ImportDataType?
+  headerRow    Int?
+  mapping      Json?
+  options      Json?
+  status       ImportStatus   @default(UPLOADED)
+  stats        Json?
+  storagePath  String
+  createdById  String         @db.Uuid
+  committedAt  DateTime?
+  committedBy  String?        @db.Uuid
+  rolledBackAt DateTime?
+  createdAt    DateTime       @default(now())
+  rows         ImportRow[]
+
+  @@index([fileHash])
+  @@map("import_batches")
+}
+
+model ImportRow {
+  id          String          @id @default(uuid()) @db.Uuid
+  batchId     String          @db.Uuid
+  batch       ImportBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  sourceFile  String
+  sourceSheet String
+  sourceRow   Int
+  sourceValue Json
+  normalized  Json?
+  issues      Json            @default("[]")
+  action      ImportRowAction @default(CREATE)
+  targetType  String?
+  targetId    String?
+  rowHash     String
+
+  @@index([batchId, sourceRow])
+  @@map("import_rows")
+}
+
+// ───────────────────────── Cross-cutting ─────────────────────────
+
+model Attachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  entityType  String
+  entityId    String
+  fileName    String
+  mimeType    String
+  size        Int
+  sha256      String
+  storagePath String
+  uploadedBy  String   @db.Uuid
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@map("attachments")
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  at         DateTime @default(now())
+  userId     String?  @db.Uuid
+  userEmail  String?
+  action     String
+  entityType String
+  entityId   String?
+  summary    String?
+  before     Json?
+  after      Json?
+  ip         String?
+
+  @@index([entityType, entityId])
+  @@index([at])
+  @@index([userId])
+  @@map("audit_log")
+}
+
+model StatusHistory {
+  id         BigInt   @id @default(autoincrement())
+  entityType String
+  entityId   String   @db.Uuid
+  fromStatus String?
+  toStatus   String
+  userId     String?  @db.Uuid
+  note       String?
+  at         DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@map("status_history")
+}
+
+model DocSequence {
+  key  String @id
+  next Int    @default(1)
+
+  @@map("doc_sequences")
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @db.Uuid
+
+  @@map("app_settings")
+}
