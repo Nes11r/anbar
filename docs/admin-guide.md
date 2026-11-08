@@ -38,3 +38,24 @@ Eyni fayl/vərəq eyni növdə ikinci dəfə təsdiqlənmir.
 
 ## Demo və real məlumat
 Demo məlumatlar yalnız development-də, `npm run db:seed:demo -- --i-understand-this-is-demo` ilə yaradılır, hamısı "DEMO" prefiksli olur və production-da işləmir. Real anbar məlumatı yalnız import və ya sayım sənədi ilə daxil olur.
+
+## Sahə anbarları (layihə üzrə)
+- Hər layihə yaradılanda onun **sahə anbarı** avtomatik açılır (`SAHE-<layihə kodu>`).
+- Axın: **Ofis anbarı → “Ofisdən sahəyə göndər”** (layihə rəhbəri götürür) **→ sahə anbarı → “İşçiyə təhvil”** (sahə anbardarı verir) **→ işçi**.
+- *Sahə anbarları* səhifəsində hər layihə üçün: **sahədə cəmi = sahə anbarında stokda + işçilərin üzərində**, material və ölçü üzrə bölgü, kimdə nə var.
+- Sahədən material tələb olunanda (MR) MR səhifəsində “**Sahədə: stok / işçilərdə**” sütunu və xəbərdarlıq göstərilir — sahədə artıq varsa, təsdiqləyən bunu görür.
+
+## Gündəlik sahə hesabatı
+1. *Sahə anbarları → layihə → “+ Gündəlik hesabat”* (və ya mobil “+” → Sahə hesabatı).
+2. Hər material üçün sahə anbardarının bildirdiyi **stokda** və **işçilərdə** rəqəmlərini yazın. Sistemin rəqəmi yanında görünür; fərq qırmızı olur.
+3. Hesabat qalığı avtomatik dəyişmir. **Stok fərqi** varsa hesabat səhifəsində “Stok fərqini sayım sənədinə çevir” → anbar müdiri sayımı təsdiqləyir. **İşçilərdəki fərq** qeyd olunmamış təhvil/qaytarma deməkdir — həmin sənədi daxil edin.
+
+## Hesab növləri və qeydiyyat
+- Giriş səhifəsində “**Hesab yaradın**”: istifadəçi **İşçi / Şirkət / Sifarişçi** seçir. Hesab **admin təsdiq edənə qədər aktiv olmur**.
+- *Parametrlər → İstifadəçilər → Təsdiq gözləyən qeydiyyatlar → Bax və təsdiq et*: rolu seçin (Şirkət rəhbəri üçün “Rəhbər / Direktor”), lazım olsa **layihə ilə məhdudlaşdırın** (sahə anbardarı, layihə rəhbəri, sifarişçi, işçi), işçi üçün **işçi kartını** bağlayın. “Rədd et” sorğunu silir.
+- **İşçi**: ümumi anbarı və “Mənim materiallarım”ı görür. **Sifarişçi**: anbarı, layihələri, sahələri və sifarişlərin vəziyyətini görür. Hər ikisi heç nəyi təsdiq və ya dəyişə bilmir.
+- Layihə ilə məhdudlaşdırılmış anbardar yalnız öz sahə anbarından öz layihəsinin işçilərinə təhvil verə, qaytarma və sayım apara bilər.
+
+## Sifarişin izlənməsi
+- MR və PO səhifələrində kargo izləməsi kimi mərhələ xətti: **Tələb yaradıldı → Təsdiqə göndərildi → Təsdiqləndi → Sifariş verildi → Ödəniş → Yoldadır → Anbarda**. Siyahılarda hər sifarişin önündə cari mərhələ və irəliləmə zolağı görünür.
+- Satınalma PO səhifəsində “**Ödəniş və çatdırılma**” blokunda: “Ödəniş gözləyir / Ödənildi” (ödəniş tapşırığı № ilə) və “Yoldadır” (daşıyıcı, izləmə №) qeyd edir. Mal qəbulu (GRN) təsdiqlənəndə mərhələ avtomatik “Anbarda” olur.

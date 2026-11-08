@@ -7,6 +7,7 @@ import { audit, type Actor } from "../audit";
 import { applyMovements, nextNumber } from "../stock/ledger";
 import { D, validateQty } from "../stock/rules";
 import { assertVariantsUsable, assertWarehouse, unitRulesFor } from "./common";
+import { ensureSiteWarehouse } from "./sites";
 
 const optStr = (max = 500) => z.string().trim().max(max).optional().nullable().transform((v) => (v ? v : null));
 const optDate = z.union([z.coerce.date(), z.literal("").transform(() => null), z.null()]).optional();
@@ -37,11 +38,14 @@ export async function saveProject(actor: Actor, id: string | null, input: z.inpu
         if (used) throw new AppError("MR-i olan layihənin kodu dəyişdirilə bilməz (MR nömrələri koda bağlıdır).");
       }
       const p = await tx.project.update({ where: { id }, data });
+      const wh = await ensureSiteWarehouse(tx, p);
+      if (before.code !== p.code) await tx.warehouse.update({ where: { id: wh.id }, data: { name: `Sahə anbarı — ${p.code}` } });
       await audit(tx, actor, "UPDATE", "Project", id, `${p.code} yeniləndi`, before, p);
       return p;
     }
     const p = await tx.project.create({ data });
-    await audit(tx, actor, "CREATE", "Project", p.id, `${p.code} – ${p.name} yaradıldı`);
+    const wh = await ensureSiteWarehouse(tx, p);
+    await audit(tx, actor, "CREATE", "Project", p.id, `${p.code} – ${p.name} yaradıldı (sahə anbarı: ${wh.code})`);
     return p;
   });
 }
@@ -124,9 +128,11 @@ export async function saveMasterRecord(actor: Actor, entity: Entity, id: string 
 export const userSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-poçt düzgün deyil."),
   name: z.string().trim().min(2).max(100),
-  role: z.enum(["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"]),
+  role: z.enum(["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"]),
   isActive: z.boolean().default(true),
   password: z.string().optional().nullable(),
+  projectId: z.string().uuid().optional().nullable().or(z.literal("").transform(() => null)),
+  employeeId: z.string().uuid().optional().nullable().or(z.literal("").transform(() => null)),
 });
 
 export async function saveUser(actor: Actor, id: string | null, input: z.input<typeof userSchema>, hash: (pw: string) => Promise<string>, strength: (pw: string) => string | null) {
@@ -143,7 +149,12 @@ export async function saveUser(actor: Actor, id: string | null, input: z.input<t
       const admins = await tx.user.count({ where: { role: "SUPER_ADMIN", isActive: true, id: { not: id } } });
       if (admins === 0) throw new AppError("Sistemdə ən azı bir aktiv Super Admin qalmalıdır.");
     }
-    const data: Prisma.UserUpdateInput = { email: d.email, name: d.name, role: d.role as UserRole, isActive: d.isActive };
+    if (d.role === "EMPLOYEE" && !d.employeeId) throw new AppError("İşçi hesabı işçi kartına bağlanmalıdır (İşçi kartı seçin).", "VALIDATION", { employeeId: "İşçi kartı seçin" });
+    if (d.employeeId) {
+      const taken = await tx.user.findFirst({ where: { employeeId: d.employeeId, id: id ? { not: id } : undefined } });
+      if (taken) throw new AppError(`Bu işçi kartı artıq başqa hesaba bağlıdır (${taken.email}).`, "VALIDATION");
+    }
+    const data: Prisma.UserUpdateInput = { email: d.email, name: d.name, role: d.role as UserRole, isActive: d.isActive, projectId: d.projectId ?? null, employeeId: d.role === "EMPLOYEE" ? d.employeeId ?? null : null, pendingApproval: false };
     if (d.password) {
       data.passwordHash = await hash(d.password);
       data.mustChangePwd = id !== actor.id;
@@ -154,7 +165,7 @@ export async function saveUser(actor: Actor, id: string | null, input: z.input<t
       await audit(tx, actor, "UPDATE", "User", id, `${u.email}: rol ${u.role}, aktiv ${u.isActive}${d.password ? ", parol dəyişdirildi" : ""}`);
       return u;
     }
-    const u = await tx.user.create({ data: { email: d.email, name: d.name, role: d.role as UserRole, isActive: d.isActive, passwordHash: data.passwordHash as string, mustChangePwd: true } });
+    const u = await tx.user.create({ data: { email: d.email, name: d.name, role: d.role as UserRole, isActive: d.isActive, passwordHash: data.passwordHash as string, mustChangePwd: true, projectId: d.projectId ?? null, employeeId: d.role === "EMPLOYEE" ? d.employeeId ?? null : null } });
     await audit(tx, actor, "CREATE", "User", u.id, `${u.email} (${u.role}) yaradıldı`);
     return u;
   });

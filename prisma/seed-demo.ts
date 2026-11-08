@@ -20,7 +20,9 @@ async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("Demo seed production mühitində qadağandır.");
   if (!process.argv.includes("--i-understand-this-is-demo")) throw new Error("Təsdiq bayrağı yoxdur: --i-understand-this-is-demo");
   if (await db.material.count({ where: { code: { startsWith: "DEMO" } } })) {
-    console.log("Demo məlumatlar artıq var — dəyişiklik edilmədi.");
+    const a = await db.user.findFirst({ where: { role: "SUPER_ADMIN", isActive: true } });
+    if (a) await demoSites({ id: a.id, email: a.email, name: a.name, role: "SUPER_ADMIN" });
+    console.log("Əsas demo məlumatlar artıq var — yalnız çatışmayan sahə ssenarisi yoxlanıldı.");
     return;
   }
   const admin = await db.user.findFirst({ where: { role: "SUPER_ADMIN", isActive: true } });
@@ -168,7 +170,49 @@ async function main() {
   // A draft issue (shows draft → post flow)
   await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: OFIS.id, projectId: p2.id, recipientName: "DEMO Usta Vüqar", purpose: "Növbəti həftə", docDate: new Date(), lines: [{ variantId: v(helmet), qty: 5 }, { variantId: v(gloves), qty: 20 }] });
 
+  await demoSites(A);
   console.log("DEMO məlumatlar yaradıldı: 3 layihə, 7 işçi, 2 tədarükçü, 15 material (ölçülərlə), 2 açılış sayımı, layihə/PPE məxaricləri, qaytarmalar, köçürmə, rezerv, MR→PO→qismən GRN, təsdiq gözləyən MR və qaralamalar.");
+}
+
+
+/**
+ * Site-warehouse scenario (office → project site → workers + a daily site report).
+ * Runs as part of the full demo, and can be added to an existing demo database on its own.
+ */
+async function demoSites(A: Actor) {
+  const sgc = await db.project.findUnique({ where: { code: "DEMO-SGC" }, include: { siteWarehouse: true } });
+  if (!sgc?.siteWarehouse) return console.log("DEMO-SGC sahə anbarı yoxdur — sahə ssenarisi atlandı.");
+  if (await db.stockLedgerEntry.count({ where: { warehouseId: sgc.siteWarehouse.id } })) return console.log("Sahə ssenarisi artıq var.");
+  const office = await db.warehouse.findUniqueOrThrow({ where: { code: "OFIS" } });
+  const v = async (code: string, size = "") => (await db.materialVariant.findFirstOrThrow({ where: { material: { code }, size } })).id;
+  const site = sgc.siteWarehouse.id;
+  const emp = async (code: string) => (await db.employee.findUniqueOrThrow({ where: { code } })).id;
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000);
+  // Project manager collects extra from the office: part goes to workers, the rest stays in site stock
+  const t = await createStockDoc(A, {
+    kind: "TRANSFER", warehouseId: office.id, toWarehouseId: site, recipientName: "DEMO Layihə rəhbəri", purpose: "Səngəçal sahəsi üçün PPE", docDate: daysAgo(3),
+    lines: [
+      { variantId: await v("DEMO-COV", "50"), qty: 4 }, { variantId: await v("DEMO-COV", "52"), qty: 4 },
+      { variantId: await v("DEMO-BOOT-W", "42"), qty: 3 }, { variantId: await v("DEMO-HELM"), qty: 6 },
+      { variantId: await v("DEMO-GLV"), qty: 40 }, { variantId: await v("DEMO-VEST", "XL"), qty: 4 },
+    ],
+  });
+  await postStockDoc(A, t.id);
+  for (const [code, lines] of [
+    ["DEMO-W01", [["DEMO-COV", "52", 1], ["DEMO-GLV", "", 10], ["DEMO-HELM", "", 1]]],
+    ["DEMO-W02", [["DEMO-COV", "50", 1], ["DEMO-BOOT-W", "42", 1], ["DEMO-GLV", "", 10], ["DEMO-HELM", "", 1]]],
+  ] as const) {
+    const d = await createStockDoc(A, { kind: "ISSUE_EMPLOYEE", warehouseId: site, employeeId: await emp(code), recipientName: "Özü", docDate: daysAgo(2), lines: await Promise.all(lines.map(async ([m, sz, q]) => ({ variantId: await v(m, sz), qty: q }))) });
+    await postStockDoc(A, d.id);
+  }
+  // Yesterday's report from the site storekeeper — one glove pack unaccounted for
+  const { createSiteReport, siteMaterials } = await import("../src/server/services/sites");
+  const mats = await siteMaterials(sgc.id);
+  await createSiteReport(A, {
+    projectId: sgc.id, reportDate: daysAgo(1), reportedBy: "DEMO Sahə anbardarı", notes: "DEMO gündəlik hesabat",
+    lines: mats.map((m) => ({ variantId: m.variantId, stockQty: m.sku.startsWith("DEMO-GLV") ? Math.max(0, m.inStock.toNumber() - 5) : m.inStock.toNumber(), withWorkersQty: m.withWorkers.toNumber() })),
+  });
+  console.log("Sahə ssenarisi əlavə edildi: DEMO-SGC sahə anbarı, işçilərə təhvil və gündəlik hesabat.");
 }
 
 main()

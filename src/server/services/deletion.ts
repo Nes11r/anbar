@@ -98,7 +98,7 @@ export async function deleteRecord(actor: Actor, type: DeletableType, id: string
           tx.purchaseOrder.count({ where: { OR: [{ createdById: id }, { approvedById: id }] } }),
           tx.goodsReceipt.count({ where: { OR: [{ createdById: id }, { postedById: id }] } }),
           tx.inventoryCount.count({ where: { OR: [{ createdById: id }, { approvedById: id }] } }),
-          tx.auditLog.count({ where: { userId: id, action: { notIn: ["LOGIN", "LOGIN_FAILED", "PASSWORD_CHANGE"] } } }),
+          tx.auditLog.count({ where: { userId: id, action: { notIn: ["LOGIN", "LOGIN_FAILED", "PASSWORD_CHANGE", "REGISTER"] } } }),
         ]);
         const r: string[] = [];
         if (ledger) r.push(`${ledger} jurnal qeydinin müəllifidir`);
@@ -180,6 +180,21 @@ export async function deleteRecord(actor: Actor, type: DeletableType, id: string
         if (res) r.push("rezervləri var");
         if (p._count.employees) r.push(`${p._count.employees} işçi bu layihəyə bağlıdır`);
         if (r.length) blocked(r, "Layihəni bağlayın (Aktivdir işarəsini götürün).");
+        const site = await tx.warehouse.findUnique({ where: { projectId: id } });
+        if (site) {
+          const [sl, sb, sd, sg, sc, sr] = await Promise.all([
+            tx.stockLedgerEntry.count({ where: { warehouseId: site.id } }),
+            tx.stockBalance.count({ where: { warehouseId: site.id, OR: [{ onHand: { gt: 0 } }, { reserved: { gt: 0 } }] } }),
+            tx.stockDocument.count({ where: { OR: [{ warehouseId: site.id }, { toWarehouseId: site.id }] } }),
+            tx.goodsReceipt.count({ where: { warehouseId: site.id } }),
+            tx.inventoryCount.count({ where: { warehouseId: site.id } }),
+            tx.siteReport.count({ where: { projectId: id } }),
+          ]);
+          if (sl + sb + sd + sg + sc + sr) blocked(["sahə anbarında hərəkət, sənəd və ya hesabat var"], "Layihəni bağlayın (Aktivdir işarəsini götürün).");
+          await tx.stockBalance.deleteMany({ where: { warehouseId: site.id } });
+          await tx.warehouse.delete({ where: { id: site.id } });
+        }
+        await tx.user.updateMany({ where: { projectId: id }, data: { projectId: null } });
         snapshot = p;
         name = `${p.code} — ${p.name}`;
         await tx.project.delete({ where: { id } });

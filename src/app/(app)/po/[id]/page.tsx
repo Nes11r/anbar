@@ -11,6 +11,9 @@ import { PrintButton, PrintHeader, Signatures } from "@/components/print";
 import { ActionButton } from "@/components/client/action-button";
 import { variantOptionsByIds } from "@/server/services/catalog";
 import { POForm } from "../po-form";
+import { OrderTimeline } from "@/components/timeline";
+import { poTimeline } from "@/server/services/tracking";
+import { PoTrackingForms } from "./tracking-forms";
 import { setPOStatusAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +26,10 @@ export default async function POPage({ params, searchParams }: { params: Promise
   const po = await db.purchaseOrder.findUnique({ where: { id }, include: { supplier: true, mr: true, lines: { orderBy: { lineNo: "asc" }, include: { mrLine: true } }, receipts: { orderBy: { createdAt: "desc" } } } });
   if (!po) notFound();
   const opts = await variantOptionsByIds(po.lines.map((l) => l.variantId));
-  const history = await db.statusHistory.findMany({ where: { entityType: "PurchaseOrder", entityId: po.id }, orderBy: { id: "asc" } });
+  const [history, stages] = await Promise.all([
+    db.statusHistory.findMany({ where: { entityType: { in: ["PurchaseOrder", "PurchaseOrderPayment", "PurchaseOrderShipment"] }, entityId: po.id }, orderBy: { id: "asc" } }),
+    poTimeline(po.id),
+  ]);
 
   if (po.status === "DRAFT" && sp(s.edit) === "1" && can(user.role, "po.manage")) {
     const suppliers = await db.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
@@ -57,6 +63,12 @@ export default async function POPage({ params, searchParams }: { params: Promise
           {!["CANCELLED", "RECEIVED"].includes(po.status) && can(user.role, "po.manage") && <ActionButton className="btn btn-danger" action={setPOStatusAction.bind(null, po.id, "CANCELLED")} confirm="PO ləğv edilsin?" reason={{ label: "Ləğv səbəbi", required: true }}>Ləğv et</ActionButton>}
         </>}
       />
+      <div className="no-print"><OrderTimeline stages={stages} /></div>
+      {can(user.role, "po.payment") && ["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED"].includes(po.status) && (
+        <Card title="Ödəniş və çatdırılma" className="no-print mb-4">
+          <PoTrackingForms poId={po.id} paymentStatus={po.paymentStatus} paymentRef={po.paymentRef} carrier={po.carrier} trackingNo={po.trackingNo} canShip={po.status !== "RECEIVED"} />
+        </Card>
+      )}
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Sifariş">
           <dl className="kv">
@@ -66,6 +78,8 @@ export default async function POPage({ params, searchParams }: { params: Promise
             <dt>Gözlənilən</dt><dd>{fmtDate(po.expectedDate)}</dd>
             <dt>Dəyər</dt><dd className="font-semibold">{fmtMoney(total, po.currency)}</dd>
             <dt>Təsdiq</dt><dd>{po.approvedAt ? fmtDateTime(po.approvedAt) : "—"}</dd>
+            <dt>Ödəniş</dt><dd>{az.paymentStatus[po.paymentStatus]}{po.paymentRef ? ` · ${po.paymentRef}` : ""}{po.paidAt ? ` · ${fmtDateTime(po.paidAt)}` : ""}</dd>
+            <dt>Göndərilmə</dt><dd>{po.shippedAt ? `${fmtDateTime(po.shippedAt)}${po.carrier ? ` · ${po.carrier}` : ""}${po.trackingNo ? ` · №${po.trackingNo}` : ""}` : "—"}</dd>
             {po.overrideReason && <><dt>İstisna (audit)</dt><dd className="text-warn">{po.overrideReason}</dd></>}
             {po.cancelReason && <><dt>Ləğv səbəbi</dt><dd>{po.cancelReason}</dd></>}
             {po.notes && <><dt>Qeyd</dt><dd>{po.notes}</dd></>}
@@ -88,7 +102,7 @@ export default async function POPage({ params, searchParams }: { params: Promise
           )}
         </Card>
         <Card title="Status tarixçəsi" pad={false}>
-          <ul className="divide-y divide-line text-sm">{history.map((h) => <li key={String(h.id)} className="px-4 py-2"><b>{az.poStatus[h.toStatus as keyof typeof az.poStatus] ?? h.toStatus}</b><span className="block text-xs text-muted">{fmtDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</span></li>)}</ul>
+          <ul className="divide-y divide-line text-sm">{history.map((h) => <li key={String(h.id)} className="px-4 py-2"><b>{h.entityType === "PurchaseOrderPayment" ? `Ödəniş: ${az.paymentStatus[h.toStatus as keyof typeof az.paymentStatus] ?? h.toStatus}` : h.entityType === "PurchaseOrderShipment" ? "Yoldadır" : az.poStatus[h.toStatus as keyof typeof az.poStatus] ?? h.toStatus}</b><span className="block text-xs text-muted">{fmtDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</span></li>)}</ul>
         </Card>
       </div>
       <Signatures roles={["Hazırlayan (Satınalma)", "Təsdiq edən", "Tədarükçü"]} />

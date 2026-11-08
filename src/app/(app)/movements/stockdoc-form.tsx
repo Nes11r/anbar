@@ -10,7 +10,7 @@ import { createStockDocAction, updateStockDocAction } from "./actions";
 
 type Kind = StockDocInput["kind"];
 export interface StockDocOptions {
-  warehouses: { id: string; name: string; type: string }[];
+  warehouses: { id: string; name: string; type: string; projectId?: string | null }[];
   projects: { id: string; label: string }[];
   employees: { id: string; label: string; group: "ENGINEER" | "WORKER"; projectId: string | null }[];
   suppliers: { id: string; label: string }[];
@@ -23,11 +23,22 @@ export interface StockDocInitial {
 
 const OUTBOUND: Kind[] = ["ISSUE_PROJECT", "ISSUE_EMPLOYEE", "RETURN_TO_SUPPLIER", "TRANSFER"];
 
-export function StockDocForm({ kind, options, initial, id, version }: { kind: Kind; options: StockDocOptions; initial?: StockDocInitial; id?: string; version?: number }) {
+export function StockDocForm({ kind, options, initial, id, version, preset }: { kind: Kind; options: StockDocOptions; initial?: StockDocInitial; id?: string; version?: number; preset?: { warehouseId?: string; toWarehouseId?: string; employeeId?: string } }) {
   const normal = options.warehouses.filter((w) => w.type === "NORMAL");
   const quarantine = options.warehouses.filter((w) => w.type === "QUARANTINE");
-  const [h, setH] = useState<Omit<StockDocInitial, "lines">>(initial ?? { kind, warehouseId: normal[0]?.id ?? "", docDate: todayIso() });
-  const [lines, setLinesState] = useState<EditorLine[]>(initial?.lines ?? [newLine()]);
+  const siteOf = (projectId?: string | null) => (projectId ? options.warehouses.find((w) => w.projectId === projectId)?.id : undefined);
+  const presetEmp = preset?.employeeId ? options.employees.find((e) => e.id === preset.employeeId) : undefined;
+  const [h, setH] = useState<Omit<StockDocInitial, "lines">>(
+    initial ?? {
+      kind,
+      warehouseId: preset?.warehouseId && options.warehouses.some((w) => w.id === preset.warehouseId) ? preset.warehouseId : siteOf(presetEmp?.projectId) ?? normal[0]?.id ?? "",
+      toWarehouseId: preset?.toWarehouseId ?? null,
+      employeeId: presetEmp?.id ?? null,
+      projectId: presetEmp?.projectId ?? null,
+      docDate: todayIso(),
+    },
+  );
+  const [lines, setLinesState] = useState<EditorLine[]>(initial?.lines?.length ? initial.lines : [newLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -90,7 +101,7 @@ export function StockDocForm({ kind, options, initial, id, version }: { kind: Ki
         {(kind === "ISSUE_EMPLOYEE" || kind === "RETURN_FROM_EMPLOYEE") && (
           <>
             <label className="label md:col-span-2"><span className="req">İşçi</span>
-              <select className="select" value={h.employeeId ?? ""} onChange={(e) => { const ee = options.employees.find((x) => x.id === e.target.value); setH((x) => ({ ...x, employeeId: e.target.value, projectId: ee?.projectId ?? x.projectId ?? null })); }} aria-invalid={!!errors.employeeId}>
+              <select className="select" value={h.employeeId ?? ""} onChange={(e) => { const ee = options.employees.find((x) => x.id === e.target.value); setH((x) => ({ ...x, employeeId: e.target.value, projectId: ee?.projectId ?? x.projectId ?? null, warehouseId: id ? x.warehouseId : siteOf(ee?.projectId) ?? x.warehouseId })); }} aria-invalid={!!errors.employeeId}>
                 <option value="">— seçin —</option>
                 {options.employees.map((e) => <option key={e.id} value={e.id}>{e.label} · {az.employeeGroup[e.group]}</option>)}
               </select>

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import type { Actor } from "@/server/audit";
 import { clientIp, requireUser } from "./auth";
 import { logServerError, toUserError, type ActionResult } from "./errors";
-import type { Permission } from "./rbac";
+import { scopeProjectId, type Permission } from "./rbac";
 
 /**
  * Every server action goes through here:
@@ -19,7 +19,7 @@ export async function runAction<T>(
 ): Promise<ActionResult<T>> {
   try {
     const u = await requireUser(perm ?? undefined);
-    const actor: Actor = { id: u.id, email: u.email, name: u.name, role: u.role, ip: await clientIp() };
+    const actor: Actor = { id: u.id, email: u.email, name: u.name, role: u.role, ip: await clientIp(), projectId: scopeProjectId(u) };
     const data = await fn(actor);
     for (const p of opts.revalidate ?? []) revalidatePath(p, "layout");
     const message = typeof opts.message === "function" ? opts.message(data) : opts.message;

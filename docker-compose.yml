@@ -72,8 +72,7 @@ services:
     depends_on:
       - app
     environment:
-      DOMAIN: ${DOMAIN:?set DOMAIN in .env (e.g. anbar.hecotec.az)}
-      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env (certificate notices)}
+      DOMAIN: ${DOMAIN:-localhost}
     ports:
       - "80:80"
       - "443:443"

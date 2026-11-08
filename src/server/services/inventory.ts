@@ -25,6 +25,12 @@ export const countSchema = z.object({
 
 export type CountInput = z.infer<typeof countSchema>;
 
+async function assertCountScope(actor: Actor, warehouseId: string) {
+  if (!actor.projectId) return;
+  const site = await db.warehouse.findUnique({ where: { projectId: actor.projectId } });
+  if (!site || site.id !== warehouseId) throw new ForbiddenError("Yalnız öz layihənizin sahə anbarında sayım apara bilərsiniz.");
+}
+
 async function validateLines(lines: CountInput["lines"]) {
   const ids = lines.map((l) => l.variantId);
   if (new Set(ids).size !== ids.length) throw new AppError("Eyni variant sayımda iki dəfə göstərilib.", "VALIDATION");
@@ -39,6 +45,7 @@ async function validateLines(lines: CountInput["lines"]) {
 export async function createCount(actor: Actor, input: CountInput) {
   if (!can(actor.role, "inventory.edit")) throw new ForbiddenError();
   const data = countSchema.parse(input);
+  await assertCountScope(actor, data.warehouseId);
   await validateLines(data.lines);
   return withTx(async (tx) => {
     const number = await nextNumber(tx, data.mode === "OPENING" ? "INV0" : "INV", data.countDate);
@@ -63,6 +70,7 @@ export async function createCount(actor: Actor, input: CountInput) {
 export async function updateCount(actor: Actor, id: string, version: number, input: CountInput) {
   if (!can(actor.role, "inventory.edit")) throw new ForbiddenError();
   const data = countSchema.parse(input);
+  await assertCountScope(actor, data.warehouseId);
   await validateLines(data.lines);
   return withTx(async (tx) => {
     const res = await tx.inventoryCount.updateMany({

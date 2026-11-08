@@ -14,7 +14,7 @@ const TTL_HOURS = Math.max(1, Number(process.env.SESSION_TTL_HOURS ?? 12) || 12)
 const MAX_FAILED = 5;
 const LOCK_MINUTES = 15;
 
-export type SessionUser = Pick<User, "id" | "email" | "name" | "role" | "mustChangePwd">;
+export type SessionUser = Pick<User, "id" | "email" | "name" | "role" | "mustChangePwd" | "projectId" | "employeeId">;
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -65,6 +65,10 @@ export async function login(emailRaw: string, password: string): Promise<Session
   const user = await db.user.findUnique({ where: { email } });
   const generic = new AppError("E-poçt və ya parol yanlışdır.", "BAD_CREDENTIALS");
 
+  if (user && user.pendingApproval) {
+    await bcrypt.compare(password, user.passwordHash);
+    throw new AppError("Hesabınız administratorun təsdiqini gözləyir. Təsdiqdən sonra daxil ola biləcəksiniz.", "PENDING_APPROVAL");
+  }
   if (!user || !user.isActive) {
     // Equalise timing to avoid user enumeration
     await bcrypt.compare(password, await dummyHash());
@@ -114,7 +118,7 @@ export async function login(emailRaw: string, password: string): Promise<Session
     path: "/",
     maxAge: TTL_HOURS * 3600,
   });
-  return { id: user.id, email: user.email, name: user.name, role: user.role, mustChangePwd: user.mustChangePwd };
+  return { id: user.id, email: user.email, name: user.name, role: user.role, mustChangePwd: user.mustChangePwd, projectId: user.projectId, employeeId: user.employeeId };
 }
 
 export async function logout() {
@@ -133,11 +137,12 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   if (!token || token.length > 200) return null;
   const s = await db.session.findUnique({
     where: { id: hashToken(token) },
-    include: { user: { select: { id: true, email: true, name: true, role: true, isActive: true, mustChangePwd: true } } },
+    include: { user: { select: { id: true, email: true, name: true, role: true, isActive: true, mustChangePwd: true, projectId: true, employeeId: true, pendingApproval: true } } },
   });
-  if (!s || s.expiresAt < new Date() || !s.user.isActive) return null;
-  const { isActive: _ignored, ...u } = s.user;
+  if (!s || s.expiresAt < new Date() || !s.user.isActive || s.user.pendingApproval) return null;
+  const { isActive: _ignored, pendingApproval: _p, ...u } = s.user;
   void _ignored;
+  void _p;
   return u;
 });
 

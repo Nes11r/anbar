@@ -13,6 +13,9 @@ import { canDecideStep } from "@/server/services/procurement";
 import { variantOptionsByIds } from "@/server/services/catalog";
 import { MRForm, type MRHeaderState } from "../mr-form";
 import { mrFormOptions } from "../options";
+import { OrderTimeline } from "@/components/timeline";
+import { mrTimeline } from "@/server/services/tracking";
+import { siteFiguresFor } from "@/server/services/sites";
 import { cancelMRAction, decideMRAction, reviseMRAction, submitMRAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -25,11 +28,14 @@ export default async function MRPage({ params, searchParams }: { params: Promise
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const mr = await db.materialRequest.findUnique({ where: { id }, include: { lines: { orderBy: { lineNo: "asc" }, include: { poLines: { include: { po: { select: { id: true, poNumber: true, status: true } } } } } }, approvals: { orderBy: { step: "asc" } }, orders: { select: { id: true, poNumber: true, status: true } } } });
   if (!mr) notFound();
-  const [project, wh, history] = await Promise.all([
+  const [project, wh, history, stages, site] = await Promise.all([
     db.project.findUnique({ where: { id: mr.projectId } }),
     mr.deliveryWarehouseId ? db.warehouse.findUnique({ where: { id: mr.deliveryWarehouseId } }) : null,
     db.statusHistory.findMany({ where: { entityType: "MaterialRequest", entityId: mr.id }, orderBy: { id: "asc" } }),
+    mrTimeline(mr.id),
+    siteFiguresFor(mr.projectId, mr.lines.map((l) => l.variantId).filter((x): x is string => !!x)),
   ]);
+  const siteWarnings = mr.lines.filter((l) => l.variantId && (site.get(l.variantId)?.inStock.gt(0) ?? false));
   const editable = (mr.status === "DRAFT" || mr.status === "RETURNED") && (mr.requesterId === user.id || user.role === "SUPER_ADMIN") && can(user.role, "mr.create");
 
   if (editable && sp(s.edit) === "1") {
@@ -69,6 +75,14 @@ export default async function MRPage({ params, searchParams }: { params: Promise
           {can(user.role, "mr.create") && !["CANCELLED", "CLOSED", "DELIVERED", "REJECTED"].includes(mr.status) && <ActionButton className="btn btn-danger" action={cancelMRAction.bind(null, mr.id)} confirm="MR ləğv edilsin?" reason={{ label: "Ləğv səbəbi", required: true }}>Ləğv et</ActionButton>}
         </>}
       />
+      <div className="no-print"><OrderTimeline stages={stages} /></div>
+      {siteWarnings.length > 0 && !["DELIVERED", "CLOSED", "CANCELLED", "REJECTED"].includes(mr.status) && (
+        <div className="alert alert-warn mb-4">
+          <b>Diqqət — bu layihənin sahə anbarında artıq var:</b>{" "}
+          {siteWarnings.map((l) => `${l.description}: stokda ${fmtQty(site.get(l.variantId!)!.inStock)}`).join("; ")}.{" "}
+          Təsdiqdən əvvəl tələbin həqiqətən lazım olduğunu yoxlayın. <Link className="link" href={`/sites/${mr.projectId}`}>Sahəyə bax</Link>
+        </div>
+      )}
       {canDecide && current && (
         <div className="alert alert-info no-print mb-4 flex flex-wrap items-center justify-between gap-3">
           <span>Sizin qərarınız gözlənilir: <b>Mərhələ {current.step} — {current.roleLabel}</b></span>
@@ -103,13 +117,13 @@ export default async function MRPage({ params, searchParams }: { params: Promise
         <Card title="3. Material cədvəli" className="xl:col-span-2" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>#</th><th>Kod</th><th>Təsvir</th><th>Ölçü</th><th>Grade</th><th>UoM</th><th className="num">Tələb</th><th className="num">Stokda</th><th className="num">Surplus%</th><th className="num">Net sifariş</th><th className="num">Vahid qiymət</th><th className="num">Sifariş edilib</th><th>Tarix</th></tr></thead>
+              <thead><tr><th>#</th><th>Kod</th><th>Təsvir</th><th>Ölçü</th><th>Grade</th><th>UoM</th><th className="num">Tələb</th><th className="num">Stokda (bütün anbarlar)</th><th className="num">Sahədə: stok / işçilərdə</th><th className="num">Surplus%</th><th className="num">Net sifariş</th><th className="num">Vahid qiymət</th><th className="num">Sifariş edilib</th><th>Tarix</th></tr></thead>
               <tbody>{mr.lines.map((l) => {
                 const ordered = l.poLines.filter((p) => p.po.status !== "CANCELLED" && p.po.status !== "DRAFT").reduce((a, p) => a + Number(p.qtyOrdered), 0);
                 return (
                   <tr key={l.id}>
                     <td>{l.lineNo}</td><td className="text-xs">{l.materialCode ?? "—"}{!l.variantId && <div><Badge tone="warn">kataloqda yox</Badge></div>}</td><td>{l.description}{l.remarks && <div className="text-xs text-muted">{l.remarks}</div>}</td><td>{l.size ?? "—"}</td><td>{l.gradeStandard ?? "—"}</td><td>{l.uomCode}</td>
-                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td><td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td><td className="num">{fmtQty(ordered)}</td><td>{fmtDate(l.requiredDate)}</td>
+                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className={`num ${l.variantId && site.get(l.variantId)?.inStock.gt(0) ? "font-bold text-warn" : ""}`}>{l.variantId ? `${fmtQty(site.get(l.variantId)?.inStock ?? 0)} / ${fmtQty(site.get(l.variantId)?.withWorkers ?? 0)}` : "—"}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td><td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td><td className="num">{fmtQty(ordered)}</td><td>{fmtDate(l.requiredDate)}</td>
                   </tr>
                 );
               })}</tbody>

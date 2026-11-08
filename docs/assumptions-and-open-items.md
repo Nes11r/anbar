@@ -21,7 +21,7 @@
 - **Barcode/QR**: sahə və unikal indeks var, skaner/etiket çapı yoxdur.
 - **İngilis dili**: lüğət strukturu (`src/i18n/az.ts`, `t()`) hazırdır; səhifə mətnlərinin bir hissəsi hələ birbaşa komponentlərdədir və `en.ts` yoxdur.
 - **Açıq sifariş (OPEN_ORDERS) importu** sətirləri yalnız arxivləyir; PO-ya avtomatik çevrilmir (bilərəkdən: PO kataloq variantı + təsdiq tələb edir).
-- **Layihə rəhbərinin yalnız öz layihələrini görməsi** (row-level məhdudiyyət) tətbiq edilməyib — hazırda rol bütün layihələri görür.
+- **Layihə ilə məhdudlaşdırma** (İstifadəçi → Layihə) sahə anbarı əməliyyatlarına, sahə/layihə/MR siyahılarına tətbiq olunur. Anbar qalığı, kataloq və hesabatlar bütün istifadəçilərə ümumi görünür (müştəri istəyi: “ümumi anbarı görə bilsin”).
 - Mobil üçün əsas formalar və cədvəllər yoxlanılıb (390px, üfüqi səhifə sürüşməsi yoxdur); çox sütunlu cədvəllər öz konteynerində üfüqi sürüşür.
 
 ## Bloklayan suallar (HECOTEC tərəfindən cavab gözlənilir)
@@ -34,3 +34,10 @@
 
 ## Məlum texniki məhdudiyyət
 - **Səhifə səviyyəli skeleton (`loading.tsx`) çıxarılıb.** Next.js 15.5 production rejimində layout səviyyəsindəki `loading.tsx` böyük (hissə-hissə gələn) cavablarda client-side keçidi ilişdirirdi: məs. Parametrlər → "MR təsdiq marşrutu", Anbar qalığı filtrləri. Sorğular 100 ms-dən tez cavab verdiyi üçün skeleton praktiki olaraq görünmürdü. Regressiya testi: `tests/e2e/journey.spec.ts` ("client-side tab/filter navigation never hangs"). Gələcəkdə skeleton lazım olarsa, yalnız ayrı-ayrı komponentlər səviyyəsində `<Suspense>` ilə əlavə edilməli və bu test işlədilməlidir.
+
+## 2026-11-08 əlavələri üçün qəbul edilmiş standart qərarlar (dəyişdirilə bilər)
+- **Sifarişçi** = layihənin müştərisi: anbarı, layihələri, sahələri və sifarişlərin vəziyyətini görür, heç nəyi təsdiq etmir.
+- **Qeydiyyat**: istifadəçi növü özü seçir, hesab admin təsdiqinə qədər aktiv deyil; “Şirkət” sorğusu müvəqqəti olaraq ən aşağı (Oxucu) rolla yaranır, admin dəqiq rolu seçir.
+- **Sahə anbarı**: hər layihəyə bir; köhnə ümumi “Sahə anbarı” (SAHE) saxlanılıb — orada qalıq yoxdursa Parametrlər → Anbarlar-dan silinə və ya deaktiv edilə bilər.
+- **Gündəlik hesabat**: material üzrə cəmlər (stokda / işçilərdə); fərdi işçi siyahısı sistemdə hərəkətlərdən avtomatik qurulur.
+- **Ödəniş statusu**: Satınalma (və Rəhbər) qeyd edir; ayrıca mühasibat rolu yoxdur.

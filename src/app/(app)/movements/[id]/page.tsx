@@ -39,7 +39,7 @@ export default async function MovementPage({ params, searchParams }: { params: P
   const draft = d.status === "DRAFT";
 
   if (draft && sp(s.edit) === "1" && can(user.role, "stockdoc.edit")) {
-    const options = await stockDocOptions(user.role);
+    const options = await stockDocOptions(user.role, user);
     return (
       <>
         <PageHeader title={`Düzəliş: ${d.number}`} crumbs={[{ href: "/movements", label: "Mədaxil / Məxaric" }, { href: `/movements/${d.id}`, label: d.number }, { label: "Düzəliş" }]} />

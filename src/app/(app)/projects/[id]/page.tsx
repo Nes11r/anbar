@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DeleteButton } from "@/components/delete-button";
 import { notFound } from "next/navigation";
 import { requirePage } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, scopeProjectId } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
 import { fmtDate, fmtQty, isoDate, sp } from "@/lib/format";
@@ -17,6 +17,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const { id } = await params;
   const s = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  const scope = scopeProjectId(user);
+  if (scope && scope !== id) notFound();
   const p = await db.project.findUnique({ where: { id } });
   if (!p) notFound();
   if (sp(s.edit) === "1" && can(user.role, "project.manage")) {
@@ -43,6 +45,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         subtitle={<span className="flex items-center gap-2">{p.client ?? ""}{p.location ? ` · ${p.location}` : ""} {p.isActive ? <Badge tone="ok">Aktiv</Badge> : <Badge>Bağlı</Badge>}</span>}
         crumbs={[{ href: "/projects", label: "Layihələr" }, { label: p.code }]}
         actions={<>
+          <Link className="btn btn-brand" href={`/sites/${p.id}`}>Sahə anbarı</Link>
           <a className="btn" href={`/api/export/project?${exportQs}`}>Excel</a>
           {can(user.role, "stockdoc.edit") && <Link className="btn btn-primary" href="/movements/new?kind=ISSUE_PROJECT">+ Məxaric</Link>}
           {can(user.role, "project.manage") && <Link className="btn" href={`/projects/${p.id}?edit=1`}>Düzəliş</Link>}

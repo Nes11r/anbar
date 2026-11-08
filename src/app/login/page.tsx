@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
@@ -15,8 +16,9 @@ export default async function LoginPage() {
           <Image src="/hecotec-logo.png" alt="HECOTEC Industrial Development Company" width={170} height={48} priority />
         </div>
         <h1 className="text-lg font-bold">Anbar Sistemi</h1>
-        <p className="mb-4 text-sm text-muted">Hesabınızla daxil olun. Hesabı administrator yaradır.</p>
+        <p className="mb-4 text-sm text-muted">Şirkət, işçi və sifarişçi hesabları eyni girişdən istifadə edir.</p>
         <LoginForm />
+        <p className="mt-4 text-center text-sm text-muted">Hesabınız yoxdur? <Link className="link" href="/register">Hesab yaradın</Link> (işçi, şirkət və ya sifarişçi)</p>
       </div>
       <p className="fixed bottom-3 left-0 right-0 text-center text-xs font-semibold tracking-wide text-[#d9eaee]/80">HECOTEC MMC · Industrial Development Company</p>
     </main>

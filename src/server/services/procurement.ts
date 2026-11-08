@@ -137,6 +137,7 @@ function mrHeader(d: MRInput) {
 export async function createMR(actor: Actor, input: MRInput) {
   if (!can(actor.role, "mr.create")) throw new ForbiddenError();
   const d = mrSchema.parse(input);
+  if (actor.projectId && actor.projectId !== d.projectId) throw new ForbiddenError("Yalnız öz layihəniz üçün MR yarada bilərsiniz.");
   const project = await db.project.findUnique({ where: { id: d.projectId } });
   if (!project || !project.isActive) throw new AppError("Layihə tapılmadı və ya deaktivdir.", "VALIDATION");
   return withTx(async (tx) => {
@@ -666,5 +667,35 @@ export async function reverseGRN(actor: Actor, id: string, reason: string) {
     }
     await audit(tx, actor, "REVERSE", "GoodsReceipt", id, `${grn.grnNumber} ləğv edildi. Səbəb: ${reason}`);
     if (grn.po.mrId) await refreshMrStatus(tx, actor, grn.po.mrId);
+  });
+}
+
+// ───────────────────────── Payment & shipment tracking ─────────────────────────
+
+export async function setPOPayment(actor: Actor, id: string, input: { status: "PENDING" | "PAID" | "NOT_SET"; ref?: string | null }) {
+  if (!can(actor.role, "po.payment")) throw new ForbiddenError();
+  const status = z.enum(["PENDING", "PAID", "NOT_SET"]).parse(input.status);
+  return withTx(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({ where: { id } });
+    if (!po) throw new NotFoundError("PO");
+    if (po.status === "CANCELLED" || po.status === "DRAFT") throw new AppError("Ödəniş statusu yalnız təsdiqlənmiş PO üçün qeyd edilir.");
+    await tx.purchaseOrder.update({ where: { id }, data: { paymentStatus: status, paymentRef: input.ref?.trim() || po.paymentRef, paidAt: status === "PAID" ? new Date() : null, version: { increment: 1 } } });
+    await statusChange(tx, actor, "PurchaseOrderPayment", id, po.paymentStatus, status, input.ref ?? undefined);
+    await audit(tx, actor, "PO_PAYMENT", "PurchaseOrder", id, `${po.poNumber}: ödəniş ${po.paymentStatus} → ${status}${input.ref ? ` (${input.ref})` : ""}`);
+    return { status };
+  });
+}
+
+export async function setPOShipment(actor: Actor, id: string, input: { carrier?: string | null; trackingNo?: string | null; shippedAt?: Date | null }) {
+  if (!can(actor.role, "po.payment")) throw new ForbiddenError();
+  return withTx(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({ where: { id } });
+    if (!po) throw new NotFoundError("PO");
+    if (po.status !== "APPROVED" && po.status !== "PARTIALLY_RECEIVED") throw new AppError("Göndərilmə yalnız təsdiqlənmiş və tam qəbul edilməmiş PO üçün qeyd edilir.");
+    const shippedAt = input.shippedAt ?? new Date();
+    await tx.purchaseOrder.update({ where: { id }, data: { shippedAt, carrier: input.carrier?.trim() || null, trackingNo: input.trackingNo?.trim() || null, version: { increment: 1 } } });
+    await statusChange(tx, actor, "PurchaseOrderShipment", id, po.shippedAt ? "SHIPPED" : null, "SHIPPED", [input.carrier, input.trackingNo].filter(Boolean).join(" · ") || undefined);
+    await audit(tx, actor, "PO_SHIPPED", "PurchaseOrder", id, `${po.poNumber}: yoldadır${input.carrier ? ` — ${input.carrier}` : ""}${input.trackingNo ? ` #${input.trackingNo}` : ""}`);
+    return { ok: true };
   });
 }

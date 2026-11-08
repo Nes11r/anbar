@@ -92,21 +92,41 @@ export default async function SettingsSection({ params, searchParams }: { params
       </>
     );
   } else if (section === "users") {
-    const rows = await db.user.findMany({ orderBy: { email: "asc" } });
+    const [rows, projects, employees] = await Promise.all([
+      db.user.findMany({ orderBy: [{ pendingApproval: "desc" }, { email: "asc" }] }),
+      db.project.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
+      db.employee.findMany({ where: { isActive: true }, orderBy: { fullName: "asc" }, select: { id: true, code: true, fullName: true } }),
+    ]);
+    const pending = rows.filter((r) => r.pendingApproval);
+    const active = rows.filter((r) => !r.pendingApproval);
     const cur = rows.find((r) => r.id === edit);
+    const pName = new Map(projects.map((p) => [p.id, p.code]));
+    const suggested = cur?.pendingApproval ? (cur.requestedType === "COMPANY" ? "WAREHOUSE_MANAGER" : cur.role) : cur?.role;
     body = (
       <>
-        <Card title={cur ? `Düzəliş: ${cur.email}` : "Yeni istifadəçi"} className="mb-4">
+        {pending.length > 0 && (
+          <Card title={`Təsdiq gözləyən qeydiyyatlar (${pending.length})`} className="mb-4" pad={false}>
+            <table className="tbl"><thead><tr><th>E-poçt</th><th>Ad</th><th>İstədiyi növ</th><th>Telefon</th><th>Qeyd</th><th>Tarix</th><th></th></tr></thead>
+              <tbody>{pending.map((r) => (
+                <tr key={r.id}><td>{r.email}</td><td>{r.name}</td><td><Badge tone="info">{r.requestedType ? az.accountType[r.requestedType] : "—"}</Badge></td><td>{r.phone ?? "—"}</td><td className="text-xs">{r.note ?? "—"}</td><td>{fmtDateTime(r.createdAt)}</td>
+                  <td className="whitespace-nowrap"><Link className="btn btn-sm btn-primary mr-1" href={`?edit=${r.id}`}>Bax və təsdiq et</Link><DeleteButton small type="user" id={r.id} label={r.email}>Rədd et</DeleteButton></td></tr>
+              ))}</tbody></table>
+          </Card>
+        )}
+        <Card title={cur?.pendingApproval ? `Təsdiq: ${cur.email} (${cur.requestedType ? az.accountType[cur.requestedType] : ""})` : cur ? `Düzəliş: ${cur.email}` : "Yeni istifadəçi"} className="mb-4">
+          {cur?.pendingApproval && <p className="alert alert-info mb-3 text-sm">Rolu, lazım olsa layihəni və (işçi üçün) işçi kartını seçin, sonra “Yadda saxla” — hesab aktivləşəcək. İstifadəçi öz parolu ilə daxil olacaq.</p>}
           <UserForm key={cur?.id ?? "new"} id={cur?.id ?? null} fields={[
             { name: "email", label: "E-poçt (login)", type: "email", required: true, defaultValue: cur?.email },
             { name: "name", label: "Ad, soyad", type: "text", required: true, defaultValue: cur?.name },
-            { name: "role", label: "Rol", type: "select", defaultValue: cur?.role ?? "STOREKEEPER", options: ROLES.map((r) => [r, az.role[r]]) },
-            { name: "password", label: cur ? "Yeni parol (boş — dəyişmir)" : "İlkin parol", type: "password", required: !cur, hint: "Ən azı 10 simvol, hərf və rəqəm. İstifadəçi ilk girişdə dəyişməlidir." },
-            { name: "isActive", label: "Aktiv", type: "checkbox", defaultValue: cur?.isActive ?? true },
+            { name: "role", label: "Rol", type: "select", defaultValue: suggested ?? "STOREKEEPER", options: ROLES.map((r) => [r, az.role[r]]), hint: "Şirkət rəhbəri = Rəhbər / Direktor. İşçi və Sifarişçi heç nəyi təsdiq edə bilmir." },
+            { name: "projectId", label: "Layihə ilə məhdudlaşdır", type: "select", defaultValue: cur?.projectId ?? "", options: [["", "— bütün layihələr —"], ...projects.map((p) => [p.id, `${p.code} — ${p.name}`] as [string, string])], hint: "Sahə anbardarı, layihə rəhbəri, işçi və sifarişçi üçün: yalnız bu layihəni və onun sahə anbarını idarə edir" },
+            { name: "employeeId", label: "İşçi kartı (yalnız İşçi rolu üçün)", type: "select", defaultValue: cur?.employeeId ?? "", options: [["", "—"], ...employees.map((e) => [e.id, `${e.fullName} (${e.code})`] as [string, string])] },
+            { name: "password", label: cur ? "Yeni parol (boş — dəyişmir)" : "İlkin parol", type: "password", required: !cur, hint: "Ən azı 10 simvol, hərf və rəqəm." },
+            { name: "isActive", label: "Aktiv", type: "checkbox", defaultValue: cur ? (cur.pendingApproval ? true : cur.isActive) : true },
           ]} />
         </Card>
-        <Card pad={false}><table className="tbl"><thead><tr><th>E-poçt</th><th>Ad</th><th>Rol</th><th>Son giriş</th><th>Status</th><th></th></tr></thead>
-          <tbody>{rows.map((r) => <tr key={r.id}><td>{r.email}</td><td>{r.name}</td><td>{az.role[r.role]}</td><td>{fmtDateTime(r.lastLoginAt)}</td><td>{r.isActive ? <Badge tone="ok">Aktiv</Badge> : <Badge>Deaktiv</Badge>}{r.lockedUntil && r.lockedUntil > new Date() && <Badge tone="bad">Bloklanıb</Badge>}</td><td className="whitespace-nowrap"><Link className="btn btn-sm mr-1" href={`?edit=${r.id}`}>Düzəliş</Link><DeleteButton small type="user" id={r.id} label={r.email} /></td></tr>)}</tbody></table></Card>
+        <Card pad={false}><table className="tbl"><thead><tr><th>E-poçt</th><th>Ad</th><th>Rol</th><th>Layihə</th><th>Son giriş</th><th>Status</th><th></th></tr></thead>
+          <tbody>{active.map((r) => <tr key={r.id}><td>{r.email}</td><td>{r.name}</td><td>{az.role[r.role]}</td><td>{r.projectId ? pName.get(r.projectId) : "Hamısı"}</td><td>{fmtDateTime(r.lastLoginAt)}</td><td>{r.isActive ? <Badge tone="ok">Aktiv</Badge> : <Badge>Deaktiv</Badge>}{r.lockedUntil && r.lockedUntil > new Date() && <Badge tone="bad">Bloklanıb</Badge>}</td><td className="whitespace-nowrap"><Link className="btn btn-sm mr-1" href={`?edit=${r.id}`}>Düzəliş</Link><DeleteButton small type="user" id={r.id} label={r.email} /></td></tr>)}</tbody></table></Card>
       </>
     );
   } else if (section === "approval") {

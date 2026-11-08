@@ -8,6 +8,8 @@ export interface Actor {
   name: string;
   role: UserRole;
   ip?: string;
+  /** Set when the user is limited to one project (site storekeeper, project manager, client, worker) */
+  projectId?: string | null;
 }
 
 function toJson(v: unknown): Prisma.InputJsonValue | undefined {

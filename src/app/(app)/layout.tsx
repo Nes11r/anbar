@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { requirePage } from "@/lib/auth";
-import { can, type Permission } from "@/lib/rbac";
+import { can, scopeProjectId, type Permission } from "@/lib/rbac";
 import { az } from "@/i18n/az";
 import { logoutAction } from "@/app/login/actions";
 import { MenuButton, SideNav } from "@/components/client/side-nav";
@@ -15,6 +15,8 @@ const NAV: { href: string; label: string; perm: Permission; icon: string; group?
   { href: "/catalog", label: az.nav.catalog, perm: "catalog.view", icon: "M4 6h16M4 12h16M4 18h10", group: "Anbar" },
   { href: "/stock", label: az.nav.stock, perm: "stock.view", icon: "M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7", group: "Anbar" },
   { href: "/inventory", label: az.nav.inventory, perm: "inventory.edit", icon: "M9 11l3 3 8-8M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9", group: "Anbar" },
+  { href: "/sites", label: az.nav.sites, perm: "site.view", icon: "M3 21h18M6 21V10l6-4 6 4v11M10 21v-5h4v5M4 10h16", group: "Anbar" },
+  { href: "/my", label: az.nav.my, perm: "my.items", icon: "M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0", group: "Anbar" },
   { href: "/movements", label: az.nav.movements, perm: "stockdoc.view", icon: "M7 7h13l-4-4M17 17H4l4 4", group: "Anbar" },
   { href: "/journal", label: az.nav.journal, perm: "stock.view", icon: "M4 4h16v16H4zM8 8h8M8 12h8M8 16h5", group: "Anbar" },
   { href: "/mr", label: az.nav.mr, perm: "mr.view", icon: "M9 5h6M9 3h6v4H9zM6 5H5a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1V6a1 1 0 00-1-1h-1", group: "Satınalma" },
@@ -46,15 +48,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const items = NAV.filter((n) => can(user.role, n.perm)).map(({ perm: _p, ...rest }) => (void _p, rest));
   const tabs: TabItem[] = [
     { href: "/", label: "Panel", icon: ICON.home },
-    { href: "/stock", label: "Qalıq", icon: ICON.stock },
+    can(user.role, "site.view") ? { href: "/sites", label: "Sahələr", icon: ICON.stock } : { href: "/stock", label: "Qalıq", icon: ICON.stock },
     can(user.role, "mr.view") ? { href: "/mr", label: "MR", icon: ICON.mr } : { href: "/journal", label: "Jurnal", icon: ICON.journal },
   ];
+  const scope = scopeProjectId(user);
   const actions: TabItem[] = [
+    ...(can(user.role, "site.report") ? [{ href: scope ? `/sites/${scope}/report` : "/sites", label: "Sahə hesabatı", icon: ICON.count }] : []),
+    ...(can(user.role, "stockdoc.edit") && !scope ? [{ href: "/movements/new?kind=TRANSFER", label: "Sahəyə göndər", icon: ICON.trf }] : []),
     ...(can(user.role, "stockdoc.edit") ? [
       { href: "/movements/new?kind=ISSUE_PROJECT", label: "Layihəyə məxaric", icon: ICON.out },
       { href: "/movements/new?kind=ISSUE_EMPLOYEE", label: "İşçiyə PPE", icon: ICON.ppe },
       { href: "/movements/new?kind=RETURN_FROM_PROJECT", label: "Qaytarma", icon: ICON.ret },
-      { href: "/movements/new?kind=TRANSFER", label: "Köçürmə", icon: ICON.trf },
     ] : []),
     ...(can(user.role, "grn.edit") ? [{ href: "/grn", label: "Mal qəbulu", icon: ICON.grn }] : []),
     ...(can(user.role, "inventory.edit") ? [{ href: "/inventory/new", label: "Sayım", icon: ICON.count }] : []),

@@ -5,8 +5,10 @@ import { can } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
 import { fmtDate, fmtQty, sp } from "@/lib/format";
-import { Card, Empty, FilterChips, PageHeader, Pagination, PoStatusBadge } from "@/components/ui";
+import { Card, Empty, FilterChips, PageHeader, Pagination } from "@/components/ui";
 import { SearchBox } from "@/components/client/search-box";
+import { StageBadge } from "@/components/timeline";
+import { poListStage } from "@/server/services/tracking";
 
 export const metadata = { title: "Satınalma sifarişləri" };
 export const dynamic = "force-dynamic";
@@ -36,11 +38,11 @@ export default async function POList({ searchParams }: { searchParams: Promise<R
         {rows.length === 0 ? <Empty title="PO yoxdur" /> : (
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>PO №</th><th>Tədarükçü</th><th>MR</th><th>Tarix</th><th>Gözlənilən</th><th className="num">Sifariş</th><th className="num">Qəbul</th><th>Status</th></tr></thead>
+              <thead><tr><th>PO №</th><th>Tədarükçü</th><th>MR</th><th>Tarix</th><th>Gözlənilən</th><th className="num">Sifariş</th><th className="num">Qəbul</th><th>Vəziyyət (izləmə)</th></tr></thead>
               <tbody>{rows.map((p) => {
                 const o = p.lines.reduce((a, l) => a + Number(l.qtyOrdered), 0), r = p.lines.reduce((a, l) => a + Number(l.qtyReceived), 0);
                 return (
-                  <tr key={p.id}><td><Link className="link" href={`/po/${p.id}`}>{p.poNumber}</Link></td><td>{p.supplier.name}</td><td>{p.mr?.mrNumber ?? "—"}</td><td>{fmtDate(p.orderDate)}</td><td>{fmtDate(p.expectedDate)}</td><td className="num">{fmtQty(o)}</td><td className="num">{fmtQty(r)}</td><td><PoStatusBadge status={p.status} /></td></tr>
+                  <tr key={p.id}><td><Link className="link" href={`/po/${p.id}`}>{p.poNumber}</Link></td><td>{p.supplier.name}</td><td>{p.mr?.mrNumber ?? "—"}</td><td>{fmtDate(p.orderDate)}</td><td>{fmtDate(p.expectedDate)}</td><td className="num">{fmtQty(o)}</td><td className="num">{fmtQty(r)}</td><td><Link href={`/po/${p.id}`}><StageBadge {...poListStage(p)} /></Link></td></tr>
                 );
               })}</tbody>
             </table>

@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hasSession = req.cookies.has("hec_session");
-  if (!hasSession && !pathname.startsWith("/login") && !pathname.startsWith("/api/health")) {
+  if (!hasSession && !pathname.startsWith("/login") && !pathname.startsWith("/register") && !pathname.startsWith("/api/health")) {
     if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
     const url = req.nextUrl.clone();
     url.pathname = "/login";

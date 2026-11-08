@@ -97,6 +97,29 @@ async function validateHeader(c: Tx | typeof db, d: StockDocInput) {
   }
 }
 
+/**
+ * Users limited to one project (site storekeeper / project manager) may only work with their own
+ * site warehouse, their own project and their own project's employees.
+ */
+async function assertDocScope(c: Tx | typeof db, actor: Actor, d: StockDocInput) {
+  if (!actor.projectId) return;
+  const site = await c.warehouse.findUnique({ where: { projectId: actor.projectId } });
+  const msg = "Bu əməliyyat sizin layihənizin sahə anbarı ilə məhdudlaşır.";
+  if (!site || d.warehouseId !== site.id) throw new ForbiddenError(msg);
+  if (d.kind === "TRANSFER") throw new ForbiddenError("Anbarlararası köçürməni ofis anbarı edir. Sahə anbarından yalnız işçilərə təhvil və qaytarma qeyd olunur.");
+  if (d.projectId && d.projectId !== actor.projectId) throw new ForbiddenError(msg);
+  for (const l of d.lines) {
+    if (l.targetWarehouseId && l.targetWarehouseId !== site.id) {
+      const t = await c.warehouse.findUnique({ where: { id: l.targetWarehouseId } });
+      if (t?.type !== "QUARANTINE") throw new ForbiddenError(msg);
+    }
+  }
+  if (d.employeeId) {
+    const e = await c.employee.findUnique({ where: { id: d.employeeId } });
+    if (e?.projectId !== actor.projectId) throw new ForbiddenError("Bu işçi sizin layihənizə aid deyil.");
+  }
+}
+
 /** Worker-group check for employee PPE issue. Returns list of mismatching SKUs lacking an override reason. */
 async function checkGroupCompatibility(c: Tx | typeof db, actor: Actor, d: StockDocInput) {
   if (d.kind !== "ISSUE_EMPLOYEE" || !d.employeeId) return;
@@ -124,6 +147,7 @@ export async function createStockDoc(actor: Actor, input: StockDocInput) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
   const d = stockDocSchema.parse(input);
   await validateHeader(db, d);
+  await assertDocScope(db, actor, d);
   await checkGroupCompatibility(db, actor, d);
   return withTx(async (tx) => {
     const number = await nextNumber(tx, KIND_PREFIX[d.kind], d.docDate);
@@ -167,6 +191,7 @@ export async function updateStockDoc(actor: Actor, id: string, version: number, 
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
   const d = stockDocSchema.parse(input);
   await validateHeader(db, d);
+  await assertDocScope(db, actor, d);
   await checkGroupCompatibility(db, actor, d);
   return withTx(async (tx) => {
     const cur = await tx.stockDocument.findUnique({ where: { id } });
@@ -240,6 +265,7 @@ export async function postStockDoc(actor: Actor, id: string) {
       lines: doc.lines.map((l) => ({ ...l, qty: Number(l.qty), direction: l.direction })),
     } as unknown as StockDocInput;
     await validateHeader(tx, input);
+    await assertDocScope(tx, actor, input);
     await checkGroupCompatibility(tx, actor, input);
 
     // Serialise returns per project / employee so two parallel returns cannot exceed what was issued

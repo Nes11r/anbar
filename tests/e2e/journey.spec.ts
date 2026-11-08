@@ -163,3 +163,68 @@ test("delete: unused project is deleted from UI; project with history is refused
   await page.getByRole("button", { name: "Təsdiq et" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Silmək olmaz" })).toBeVisible();
 });
+
+test("registration: user picks account type, cannot log in until admin approves", async ({ page, browser }) => {
+  await page.goto("/register");
+  await page.locator("label", { hasText: "Sifarişçi" }).first().click();
+  await page.getByLabel("Ad, soyad").fill("E2E Sifarişçi");
+  await page.getByLabel("E-poçt").fill("e2e.client@test.local");
+  await page.locator("input[name=password]").fill("ClientPass123");
+  await page.locator("input[name=password2]").fill("ClientPass123");
+  await page.getByRole("button", { name: "Qeydiyyat sorğusu göndər" }).click();
+  await expect(page.getByText("Sorğunuz qəbul edildi")).toBeVisible();
+  // pending → login refused
+  await page.goto("/login");
+  await page.getByLabel("E-poçt").fill("e2e.client@test.local");
+  await page.getByLabel("Parol").fill("ClientPass123");
+  await page.getByRole("button", { name: "Daxil ol" }).click();
+  await expect(page.getByText("təsdiqini gözləyir")).toBeVisible();
+  // admin approves
+  const ctx = await browser.newContext();
+  const admin = await ctx.newPage();
+  await login(admin, "admin");
+  await admin.goto("/settings/users");
+  await expect(admin.getByText("Təsdiq gözləyən qeydiyyatlar")).toBeVisible();
+  await admin.getByRole("link", { name: "Bax və təsdiq et" }).click();
+  await expect(admin.getByRole("heading", { name: /Təsdiq: e2e\.client@test\.local/ })).toBeVisible();
+  await admin.getByRole("button", { name: "Yadda saxla" }).click();
+  await expect(admin.getByText("İstifadəçi yadda saxlanıldı")).toBeVisible();
+  await ctx.close();
+  // now login works; client is read-only (no approve/create buttons, no settings)
+  await page.goto("/login");
+  await page.getByLabel("E-poçt").fill("e2e.client@test.local");
+  await page.getByLabel("Parol").fill("ClientPass123");
+  await page.getByRole("button", { name: "Daxil ol" }).click();
+  await expect(page.getByRole("heading", { name: "İdarə paneli" })).toBeVisible();
+  await page.goto("/sites");
+  await expect(page.getByRole("heading", { name: "Sahə anbarları" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "+ Ofisdən sahəyə göndər" })).toHaveCount(0);
+  await page.goto("/mr");
+  await expect(page.getByRole("link", { name: "+ Yeni MR" })).toHaveCount(0);
+});
+
+test("site: office → site transfer shows up as site stock; daily report records differences", async ({ page }) => {
+  await login(page, "admin");
+  await page.goto("/sites");
+  await page.getByRole("link", { name: /E2E01/ }).first().click();
+  await expect(page.getByRole("heading", { name: /Sahə: E2E01/ })).toBeVisible();
+  await page.getByRole("link", { name: "Ofisdən sahəyə göndər" }).click();
+  await page.locator('label:has(> span:text-is("Daşıyan şəxs")) input').fill("Layihə rəhbəri");
+  const box = page.locator("input[role=combobox]").first();
+  await box.click();
+  await box.fill("E2E");
+  await page.getByRole("option", { name: /42/ }).first().click();
+  await page.getByLabel("Miqdar 1").fill("2");
+  await page.getByRole("button", { name: "Qaralama kimi saxla" }).click();
+  await page.getByRole("button", { name: "Təsdiqlə" }).click();
+  await page.getByRole("button", { name: "Təsdiq et" }).click();
+  await expect(page.getByText("Təsdiqləndi, qalıq yeniləndi.")).toBeVisible();
+  await page.goto("/sites");
+  await page.getByRole("link", { name: /E2E01/ }).first().click();
+  await expect(page.locator(".card", { hasText: "Sahə anbarında stokda" })).toContainText("2");
+  await page.getByRole("link", { name: "+ Gündəlik hesabat" }).click();
+  await page.getByLabel(/stokda$/).first().fill("1");
+  await page.getByLabel(/işçilərdə$/).first().fill("0");
+  await page.getByRole("button", { name: "Hesabatı saxla" }).click();
+  await expect(page.getByText(/materialda sistemlə fərq var/).first()).toBeVisible();
+});

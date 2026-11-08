@@ -5,16 +5,16 @@ import type { UserRole } from "@prisma/client";
  * the menu only hides what the user cannot use anyway.
  */
 export const PERMISSIONS = {
-  "dashboard.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
-  "catalog.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
+  "dashboard.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
+  "catalog.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
   "catalog.manage": ["SUPER_ADMIN", "WAREHOUSE_MANAGER"],
-  "stock.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
+  "stock.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
   "reservation.manage": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   "inventory.edit": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   "inventory.approve": ["SUPER_ADMIN", "WAREHOUSE_MANAGER"],
-  "mr.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
+  "mr.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
   "mr.create": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER"],
-  "po.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
+  "po.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
   "po.manage": ["SUPER_ADMIN", "PROCUREMENT"],
   "po.approve": ["SUPER_ADMIN", "PROCUREMENT"],
   /** Create a PO from a not-yet-approved MR / without MR. Always audited with a reason. */
@@ -29,7 +29,7 @@ export const PERMISSIONS = {
   "document.reverse": ["SUPER_ADMIN", "WAREHOUSE_MANAGER"],
   /** Issue PPE to an employee whose group does not match the material (reason required) */
   "issue.override": ["SUPER_ADMIN", "WAREHOUSE_MANAGER"],
-  "project.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
+  "project.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
   "project.manage": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "PROJECT_MANAGER"],
   "employee.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER", "AUDITOR"],
   "employee.manage": ["SUPER_ADMIN", "WAREHOUSE_MANAGER"],
@@ -38,9 +38,25 @@ export const PERMISSIONS = {
   "audit.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "AUDITOR"],
   "settings.manage": ["SUPER_ADMIN"],
   "masterdata.manage": ["SUPER_ADMIN", "WAREHOUSE_MANAGER"],
+  /** Site (project) warehouses: overview of site stock vs. items with workers */
+  "site.view": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
+  /** Enter the daily site report (stock / with workers) */
+  "site.report": ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER"],
+  /** Record payment / shipment progress of purchase orders */
+  "po.payment": ["SUPER_ADMIN", "PROCUREMENT"],
+  /** Employee self-service: own items */
+  "my.items": ["EMPLOYEE"],
 } as const satisfies Record<string, readonly UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
+
+/** Roles that can be limited to a single project (User.projectId). */
+export const SCOPABLE_ROLES: readonly UserRole[] = ["STOREKEEPER", "PROJECT_MANAGER", "EMPLOYEE", "CLIENT"];
+
+/** Project the user is limited to, or null = all projects. */
+export function scopeProjectId(u: { role: UserRole; projectId?: string | null }): string | null {
+  return u.projectId && SCOPABLE_ROLES.includes(u.role) ? u.projectId : null;
+}
 
 export function can(role: UserRole | null | undefined, perm: Permission): boolean {
   if (!role) return false;
