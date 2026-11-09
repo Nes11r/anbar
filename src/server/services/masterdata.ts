@@ -37,6 +37,22 @@ export async function saveProject(actor: Actor, id: string | null, input: z.inpu
         const used = await tx.materialRequest.count({ where: { projectId: id } });
         if (used) throw new AppError("MR-i olan layihənin kodu dəyişdirilə bilməz (MR nömrələri koda bağlıdır).");
       }
+      if (before.isActive && data.isActive === false) {
+        // closing a project must not "lose" material still on its site or with its workers
+        const [left] = await tx.$queryRaw<{ site: string; workers: string }[]>`
+          SELECT
+            COALESCE((SELECT SUM(b."onHand") FROM stock_balances b JOIN warehouses w ON w.id = b."warehouseId" WHERE w."projectId" = ${id}::uuid), 0)::text AS site,
+            COALESCE((SELECT SUM(CASE WHEN l."entryType" = 'ISSUE' THEN l.qty ELSE -l.qty END)
+              FROM stock_ledger l JOIN employees e ON e.id = l."employeeId" JOIN material_variants v ON v.id = l."variantId" JOIN materials m ON m.id = v."materialId"
+              WHERE e."projectId" = ${id}::uuid AND l."entryType" IN ('ISSUE','RETURN_IN') AND NOT m."isConsumable"), 0)::text AS workers`;
+        const site = Number(left.site), workers = Number(left.workers);
+        if (site > 0 || workers > 0)
+          throw new AppError(
+            `Layihəni bağlamaq olmur: sahə anbarında ${site} vahid${workers > 0 ? `, işçilərdə ${workers} vahid` : ""} material qalıb. Əvvəlcə artığı ofisə qaytarın${workers > 0 ? ", işçilərdən geri alın və ya başqa layihəyə keçirin" : ""}.`,
+            "VALIDATION",
+            { isActive: "Sahədə material qalıb" },
+          );
+      }
       const p = await tx.project.update({ where: { id }, data });
       const wh = await ensureSiteWarehouse(tx, p);
       if (before.code !== p.code) await tx.warehouse.update({ where: { id: wh.id }, data: { name: `Sahə anbarı — ${p.code}` } });
@@ -230,5 +246,21 @@ export async function saveApprovalStep(actor: Actor, step: number, input: { isAc
     if (input.isActive && input.allowedRoles.length === 0) throw new AppError("Aktiv mərhələ üçün ən azı bir rol seçin.");
     await tx.approvalStepConfig.update({ where: { step }, data: input });
     await audit(tx, actor, "UPDATE", "ApprovalStepConfig", String(step), `${cur.labelAz}: aktiv=${input.isActive}, şərt=${input.condition}, rollar=${input.allowedRoles.join(",")}`);
+  });
+}
+
+/**
+ * Worker moves to another project and/or is re-classified (Fəhlə ↔ Mühəndis).
+ * What the worker holds moves with them: site figures follow the worker's current project.
+ */
+export async function updateEmployeeAssignment(actor: Actor, id: string, input: { projectId?: string | null; group: "ENGINEER" | "WORKER" }) {
+  if (!can(actor.role, "employee.manage")) throw new ForbiddenError();
+  const d = z.object({ projectId: z.string().uuid().nullable().optional().or(z.literal("").transform(() => null)), group: z.enum(["ENGINEER", "WORKER"]) }).parse(input);
+  return withTx(async (tx) => {
+    const before = await tx.employee.findUnique({ where: { id } });
+    if (!before) throw new NotFoundError("İşçi");
+    const e = await tx.employee.update({ where: { id }, data: { projectId: d.projectId ?? null, group: d.group } });
+    await audit(tx, actor, "UPDATE", "Employee", id, `${e.fullName}: layihə / təyinat dəyişdi`, before, e);
+    return e;
   });
 }

@@ -1,5 +1,6 @@
+import { siteWorkerHoldings } from "@/server/services/sites";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requirePage } from "@/lib/auth";
 import { can, scopeProjectId } from "@/lib/rbac";
 import { db } from "@/lib/db";
@@ -13,13 +14,22 @@ export const dynamic = "force-dynamic";
 
 export default async function SiteReportView({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("site.view");
+  if (user.role === "CLIENT") redirect("/forbidden");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const r = await db.siteReport.findUnique({ where: { id }, include: { lines: true, project: true } });
   if (!r) notFound();
   const scope = scopeProjectId(user);
   if (scope && scope !== r.projectId) notFound();
-  const opts = await variantOptionsByIds(r.lines.map((l) => l.variantId));
+  const [opts, holdings, site] = await Promise.all([
+    variantOptionsByIds(r.lines.map((l) => l.variantId)),
+    siteWorkerHoldings(r.projectId),
+    db.warehouse.findUnique({ where: { projectId: r.projectId }, select: { id: true } }),
+  ]);
+  const canFix = can(user.role, "stockdoc.edit");
+  const workerFix = r.lines
+    .map((l) => ({ l, v: opts.get(l.variantId), dw: l.withWorkersQty.toNumber() - l.systemWithWorkers.toNumber() }))
+    .filter((x) => x.dw !== 0 && x.v);
   const stockDiffs = r.lines.filter((l) => !l.stockQty.eq(l.systemStock)).length;
   const workerDiffs = r.lines.filter((l) => !l.withWorkersQty.eq(l.systemWithWorkers)).length;
   const sign = (n: number) => (n > 0 ? `+${fmtQty(n)}` : fmtQty(n));
@@ -29,7 +39,7 @@ export default async function SiteReportView({ params }: { params: Promise<{ id:
         viewOnly={{ role: user.role, perm: "site.report", action: "sahə hesabatı daxil etmək" }}
         title={`Sahə hesabatı — ${r.project.code}, ${fmtDate(r.reportDate)}`}
         subtitle={`Hesabatı verən: ${r.reportedBy} · daxil edilib ${fmtDateTime(r.createdAt)}`}
-        crumbs={[{ href: "/sites", label: "Sahə anbarları" }, { href: `/sites/${r.projectId}`, label: r.project.code }, { label: fmtDate(r.reportDate) }]}
+        crumbs={[{ href: "/sites", label: "Layihələr və sahələr" }, { href: `/sites/${r.projectId}`, label: r.project.code }, { label: fmtDate(r.reportDate) }]}
         actions={<>
           {stockDiffs > 0 && can(user.role, "inventory.edit") && (
             <ActionButton className="btn btn-primary" action={siteReportToCountAction.bind(null, r.id)} confirm={`Stok fərqi olan ${stockDiffs} material üçün sahə anbarında qaralama sayım yaradılsın? Anbar müdiri təsdiq edənə qədər qalıq dəyişmir.`}>
@@ -65,6 +75,31 @@ export default async function SiteReportView({ params }: { params: Promise<{ id:
           </table>
         </div>
       </Card>
+      {workerFix.length > 0 && canFix && site && (
+        <Card title="İşçilərdəki fərqi düzəlt" className="no-print mt-4" pad={false}>
+          <p className="px-4 pt-3 text-xs text-muted">
+            Sahədə işçilərdə <b>az</b> sayılıbsa — kimdəsə geri qaytarılıb və ya itib: həmin işçidən “Geri al” edin (itibsə / yararsızdırsa vəziyyəti <b>qüsurlu</b> seçin — karantinə düşür, sonra oradan silinir).
+            Sahədə <b>çox</b> sayılıbsa — qeyd olunmamış təhvil var: “İşçiyə təhvil” edin.
+          </p>
+          <ul className="divide-y divide-line">
+            {workerFix.map(({ l, v, dw }) => {
+              const who = holdings.filter((h) => h.sku === v!.sku);
+              return (
+                <li key={l.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 flex-1"><b>{v!.name}{v!.size ? ` · ${v!.size}` : ""}</b> — fərq <Badge tone="warn">{sign(dw)}</Badge></span>
+                  {dw > 0 ? (
+                    <Link className="btn btn-sm" href={`/movements/new?kind=ISSUE_EMPLOYEE&wh=${site.id}`}>İşçiyə təhvil qeyd et</Link>
+                  ) : who.length === 0 ? (
+                    <span className="text-xs text-muted">Sistemdə bu material heç bir işçidə görünmür.</span>
+                  ) : (
+                    who.map((h) => <Link key={h.employeeId} className="btn btn-sm" href={`/movements/new?kind=RETURN_FROM_EMPLOYEE&employee=${h.employeeId}&wh=${site.id}`}>{h.fullName} ({fmtQty(h.qty)}) — geri al</Link>)
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
       <p className="mt-3 text-xs text-muted">Sistem rəqəmləri hesabatın daxil edildiyi anda yadda saxlanılıb, sonrakı hərəkətlər bu müqayisəni dəyişmir.</p>
     </>
   );

@@ -21,6 +21,7 @@ export const variantInputSchema = z.object({
 
 export const materialSchema = z.object({
   code: z.string().trim().max(40).optional().nullable(),
+  isConsumable: z.boolean().default(false),
   originalCode: optStr(100),
   nameAz: z.string().trim().min(2, "Material adı (AZ) məcburidir.").max(300),
   nameEn: optStr(300),
@@ -100,6 +101,7 @@ export async function createMaterial(actor: Actor, input: MaterialInput, provena
         unitCode: d.unitCode,
         supplierId: d.supplierId || null,
         minStock: D(d.minStock),
+        isConsumable: d.isConsumable,
         notes: d.notes,
         createdById: actor.id,
         sourceConfidence: provenance?.confidence ?? "MANUAL",
@@ -157,6 +159,7 @@ export async function updateMaterial(actor: Actor, id: string, version: number, 
         unitCode: d.unitCode,
         supplierId: d.supplierId || null,
         minStock: D(d.minStock),
+        isConsumable: d.isConsumable,
         notes: d.notes,
         version: { increment: 1 },
       },

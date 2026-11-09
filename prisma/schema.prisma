@@ -345,6 +345,8 @@ model Material {
   supplierId       String?           @db.Uuid
   supplier         Supplier?         @relation(fields: [supplierId], references: [id])
   minStock         Decimal           @default(0) @db.Decimal(18, 3)
+  /// Used up when handed to a worker (gloves, electrodes…): never counted as "held by worker".
+  isConsumable     Boolean           @default(false)
   isActive         Boolean           @default(true)
   photoId          String?           @db.Uuid
   notes            String?

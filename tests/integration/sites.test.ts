@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import type { Actor } from "@/server/audit";
 import { createMaterial } from "@/server/services/catalog";
 import { approveCount, createCount } from "@/server/services/inventory";
-import { saveEmployee, saveProject } from "@/server/services/masterdata";
+import { saveEmployee, saveProject, updateEmployeeAssignment } from "@/server/services/masterdata";
 import { createGRN, createMR, createPO, decideMR, postGRN, setPOPayment, setPOShipment, setPOStatus, submitMR } from "@/server/services/procurement";
 import { registerAccount } from "@/server/services/registration";
 import { createSiteReport, siteMaterials, siteOverview, siteReportToCount, siteWorkerHoldings } from "@/server/services/sites";
@@ -89,7 +89,15 @@ describe("Sahə anbarları", () => {
     const siteKeeper: Actor = { ...(await makeUser("STOREKEEPER", "site@test.local")), projectId: project.id };
     await expect(createStockDoc(siteKeeper, { kind: "ISSUE_EMPLOYEE", warehouseId: B.wh.id, employeeId: emp.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }] })).rejects.toThrow(/sahə anbarı/);
     await expect(createStockDoc(siteKeeper, { kind: "ISSUE_EMPLOYEE", warehouseId: site.id, employeeId: emp2.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }] })).rejects.toThrow(/layihənizə aid deyil/);
-    await expect(createStockDoc(siteKeeper, { kind: "TRANSFER", warehouseId: site.id, toWarehouseId: B.wh.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }] })).rejects.toThrow(/köçürmə/i);
+    // leftovers may go back to the office, but never straight to another project's site
+    const otherSite = await db.warehouse.findUniqueOrThrow({ where: { projectId: (await db.project.findFirstOrThrow({ where: { code: "BKU" } })).id } });
+    await expect(createStockDoc(siteKeeper, { kind: "TRANSFER", warehouseId: site.id, toWarehouseId: otherSite.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }] })).rejects.toThrow(/ofis anbarına/i);
+    const back = await createAndPostStockDoc(siteKeeper, { kind: "TRANSFER", warehouseId: site.id, toWarehouseId: B.wh.id, recipientName: "Sürücü", docDate: today, lines: [{ variantId: v.id, qty: 1 }] } as never);
+    expect(back.posted).toBe(true);
+    // using material on site is recorded only from the project's own site warehouse
+    await expect(createStockDoc(wm, { kind: "ISSUE_PROJECT", warehouseId: B.wh.id, projectId: project.id, recipientName: "Usta", docDate: today, lines: [{ variantId: v.id, qty: 1 }] })).rejects.toThrow(/sahə anbarından/);
+    const used = await createAndPostStockDoc(siteKeeper, { kind: "ISSUE_PROJECT", warehouseId: site.id, projectId: project.id, recipientName: "Usta", docDate: today, lines: [{ variantId: v.id, qty: 1 }] } as never);
+    expect(used.posted).toBe(true);
     const ok = await createStockDoc(siteKeeper, { kind: "ISSUE_EMPLOYEE", warehouseId: site.id, employeeId: emp.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }] });
     await postStockDoc(siteKeeper, ok.id);
     await expect(createSiteReport(siteKeeper, { projectId: (await db.project.findFirstOrThrow({ where: { code: "BKU" } })).id, reportDate: today, reportedBy: "X Y", lines: [{ variantId: v.id, stockQty: 0, withWorkersQty: 0 }] })).rejects.toThrow(/səlahiyyət dairənizdə/);
@@ -125,6 +133,28 @@ describe("İşçiyə ad ilə təhvil (ayrıca işçi qeydiyyatı yoxdur)", () =>
     expect(docs.every((d) => d.employeeId === workers[0].id && d.projectId === project.id)).toBe(true);
     const held = await siteWorkerHoldings(project.id);
     expect(JSON.stringify(held)).toContain("Rəşad Quliyev");
+  });
+});
+
+describe("Sərf materialı və işçinin layihə dəyişməsi", () => {
+  it("sərf materialı işçidə qalmır; işçi başqa layihəyə keçəndə əşyaları da onunla keçir", async () => {
+    const { project, other, site, v, emp } = await setup();
+    const glove = await createMaterial(wm, { code: "GLV", nameAz: "Əlcək", categoryId: B.other.id, workerGroup: "NOT_APPLICABLE", sizeType: "NONE", unitCode: "PAIR", minStock: 0, isConsumable: true, variants: [{ size: "", color: "" }] } as never);
+    const g = glove.variants[0];
+    const c = await createCount(wm, { mode: "OPENING", warehouseId: B.wh.id, countDate: today, countedBy: "Sayıcı", lines: [{ variantId: g.id, countedQty: 20 }] });
+    await approveCount(wm, c.id);
+    await createAndPostStockDoc(wm, { kind: "TRANSFER", warehouseId: B.wh.id, toWarehouseId: site.id, recipientName: "Sürücü", docDate: today, lines: [{ variantId: v.id, qty: 3 }, { variantId: g.id, qty: 10 }] } as never);
+    await createAndPostStockDoc(wm, { kind: "ISSUE_EMPLOYEE", warehouseId: site.id, employeeId: emp.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }, { variantId: g.id, qty: 4 }] } as never);
+    const mats = await siteMaterials(project.id);
+    expect(Number(mats.find((m) => m.variantId === g.id)!.withWorkers)).toBe(0); // used up
+    expect(Number(mats.find((m) => m.variantId === g.id)!.inStock)).toBe(6);
+    expect(Number(mats.find((m) => m.variantId === v.id)!.withWorkers)).toBe(1);
+    // worker moves to the other project: the coverall moves with him
+    await updateEmployeeAssignment(wm, emp.id, { projectId: other.id, group: "WORKER" });
+    expect(Number((await siteMaterials(project.id)).find((m) => m.variantId === v.id)?.withWorkers ?? 0)).toBe(0);
+    expect(Number((await siteMaterials(other.id)).find((m) => m.variantId === v.id)!.withWorkers)).toBe(1);
+    // a project with material left on site / with workers cannot be closed
+    await expect(saveProject(wm, other.id, { code: "BKU", name: "Bakı", isActive: false })).rejects.toThrow(/bağlamaq olmur/);
   });
 });
 

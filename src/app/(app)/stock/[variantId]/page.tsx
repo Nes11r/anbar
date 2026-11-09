@@ -8,7 +8,6 @@ import { fmtDate, fmtQty } from "@/lib/format";
 import { Card, GroupBadge, PageHeader, StockStatus } from "@/components/ui";
 import { ActionButton } from "@/components/client/action-button";
 import { ledgerJournal } from "@/server/services/reports";
-import { ReservationForm } from "./reservation-form";
 import { releaseReservationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -54,8 +53,7 @@ export default async function VariantPage({ params }: { params: Promise<{ varian
             ); })}</tbody>
           </table>
         </Card>
-        <Card title="Aktiv rezervlər" className="xl:col-span-2" pad={false}>
-          {canRes && <div className="border-b border-line p-3"><ReservationForm variantId={v.id} warehouses={whs.filter((w) => w.type === "NORMAL" && w.isActive).map((w) => ({ id: w.id, name: w.name }))} projects={projects} /></div>}
+        {reservations.length > 0 && <Card title="Aktiv rezervlər (köhnə — azad edin)" className="xl:col-span-2" pad={false}>
           {reservations.length === 0 ? <p className="p-4 text-sm text-muted">Aktiv rezerv yoxdur.</p> : (
             <table className="tbl">
               <thead><tr><th>№</th><th>Anbar</th><th>Layihə</th><th className="num">Miqdar</th><th>Səbəb</th><th>Tarix</th><th></th></tr></thead>
@@ -68,7 +66,7 @@ export default async function VariantPage({ params }: { params: Promise<{ varian
               ))}</tbody>
             </table>
           )}
-        </Card>
+        </Card>}
         <Card title={`Hərəkət jurnalı (son ${journal.rows.length} / ${journal.total})`} className="xl:col-span-3" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">

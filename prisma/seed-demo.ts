@@ -9,7 +9,7 @@ import { PrismaClient } from "@prisma/client";
 import type { Actor } from "../src/server/audit";
 import { createMaterial } from "../src/server/services/catalog";
 import { approveCount, createCount } from "../src/server/services/inventory";
-import { createReservation, saveEmployee, saveProject } from "../src/server/services/masterdata";
+import { saveEmployee, saveProject } from "../src/server/services/masterdata";
 import { createGRN, createMR, createPO, decideMR, postGRN, setPOPayment, setPOShipment, setPOStatus, submitMR } from "../src/server/services/procurement";
 import { createStockDoc, postStockDoc } from "../src/server/services/stockdocs";
 
@@ -65,11 +65,11 @@ async function main() {
   const helmet = await mk({ code: "DEMO-HELM", nameAz: "DEMO Dəbilqə", model: "Ratchet", categoryId: await cat("PPE-HEAD"), workerGroup: "BOTH", sizeType: "NONE", unitCode: "PCS", minStock: 10, variants: sizes([""]) });
   const glassC = await mk({ code: "DEMO-GLS-C", nameAz: "DEMO Eynək (şəffaf)", categoryId: await cat("PPE-HEAD"), workerGroup: "BOTH", sizeType: "NONE", unitCode: "PCS", minStock: 20, variants: sizes([""]) });
   const glassD = await mk({ code: "DEMO-GLS-D", nameAz: "DEMO Eynək (qara)", categoryId: await cat("PPE-HEAD"), workerGroup: "BOTH", sizeType: "NONE", unitCode: "PCS", minStock: 10, variants: sizes([""]) });
-  const gloves = await mk({ code: "DEMO-GLV", nameAz: "DEMO İş əlcəyi", categoryId: await cat("PPE-HAND"), workerGroup: "BOTH", sizeType: "NONE", unitCode: "PAIR", minStock: 50, variants: sizes([""]) });
+  const gloves = await mk({ isConsumable: true, code: "DEMO-GLV", nameAz: "DEMO İş əlcəyi", categoryId: await cat("PPE-HAND"), workerGroup: "BOTH", sizeType: "NONE", unitCode: "PAIR", minStock: 50, variants: sizes([""]) });
   const bag = await mk({ code: "DEMO-BAG", nameAz: "DEMO Çanta (mühəndis)", categoryId: await cat("PPE-BAG"), workerGroup: "ENGINEER", sizeType: "NONE", unitCode: "PCS", minStock: 2, variants: sizes([""]) });
   const pipe = await mk({ code: "DEMO-PIPE219", nameAz: "DEMO Karbon polad boru Ø219", categoryId: await cat("PIPE"), workerGroup: "NOT_APPLICABLE", sizeType: "NONE", unitCode: "M", minStock: 100, variants: sizes([""]) });
   const flange = await mk({ code: "DEMO-FLG200", nameAz: "DEMO Flans DN200 PN16", categoryId: await cat("VALVE"), workerGroup: "NOT_APPLICABLE", sizeType: "NONE", unitCode: "PCS", minStock: 10, variants: sizes([""]) });
-  const electrode = await mk({ code: "DEMO-ELD32", nameAz: "DEMO Qaynaq elektrodu Ø3.2", categoryId: await cat("WELD"), workerGroup: "NOT_APPLICABLE", sizeType: "NONE", unitCode: "KG", minStock: 50, variants: sizes([""]) });
+  const electrode = await mk({ isConsumable: true, code: "DEMO-ELD32", nameAz: "DEMO Qaynaq elektrodu Ø3.2", categoryId: await cat("WELD"), workerGroup: "NOT_APPLICABLE", sizeType: "NONE", unitCode: "KG", minStock: 50, variants: sizes([""]) });
   const cable = await mk({ code: "DEMO-CBL416", nameAz: "DEMO Kabel NYY 4x16", categoryId: await cat("ELEC"), workerGroup: "NOT_APPLICABLE", sizeType: "NONE", unitCode: "M", minStock: 200, variants: sizes([""]) });
   const v = (m: { variants: { id: string; size: string }[] }, size = "") => m.variants.find((x) => x.size === size)!.id;
 
@@ -90,15 +90,21 @@ async function main() {
   await approveCount(A, c2.id);
 
   // ── Issues to projects ──
-  const issueP = async (projectId: string, recipientName: string, ago: number, lines: [string, number][], wh = OFIS.id) => {
-    const d = await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: wh, projectId, recipientName, docDate: daysAgo(ago), lines: lines.map(([variantId, qty]) => ({ variantId, qty })) });
+  // office → project site (transfer), then used on site (consumption is recorded from the site warehouse only)
+  const issueP = async (projectId: string, recipientName: string, ago: number, lines: [string, number][], fromSiteOnly = false) => {
+    const site = await db.warehouse.findUniqueOrThrow({ where: { projectId } });
+    if (!fromSiteOnly) {
+      const t = await createStockDoc(A, { kind: "TRANSFER", warehouseId: OFIS.id, toWarehouseId: site.id, recipientName: "DEMO Sürücü", docDate: daysAgo(ago + 1), lines: lines.map(([variantId, qty]) => ({ variantId, qty })) });
+      await postStockDoc(A, t.id);
+    }
+    const d = await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: site.id, projectId, recipientName, docDate: daysAgo(ago), lines: lines.map(([variantId, qty]) => ({ variantId, qty })) });
     await postStockDoc(A, d.id);
     return d;
   };
   await issueP(p1.id, "DEMO Usta Əli", 25, [[v(pipe), 80], [v(flange), 6], [v(electrode), 45], [v(helmet), 10], [v(gloves), 60]]);
   await issueP(p2.id, "DEMO Usta Vüqar", 20, [[v(pipe), 40], [v(helmet), 6], [v(vest, "XL"), 8], [v(glassC), 30]]);
   await issueP(p3.id, "DEMO Usta Nicat", 12, [[v(gloves), 40], [v(helmet), 4]]);
-  await issueP(p1.id, "DEMO Sahə rəisi", 6, [[v(pipe), 60], [v(gloves), 30]], SAHE.id);
+  await issueP(p1.id, "DEMO Sahə rəisi", 6, [[v(pipe), 60], [v(gloves), 30]], true);
 
   // ── PPE to employees (incl. one authorised group-mismatch override) ──
   const ppe = async (emp: string, ago: number, lines: [string, number, string?][]) => {
@@ -114,7 +120,7 @@ async function main() {
   await ppe("DEMO-E03", 4, [[v(bootsW, "43"), 1, "Mühəndis ölçüsü bitib, müvəqqəti fəhlə botinkası verildi"], [v(pants, "52"), 1]]);
 
   // ── Returns: one good (back to Office), one defective (→ Quarantine) ──
-  const r1 = await createStockDoc(A, { kind: "RETURN_FROM_PROJECT", warehouseId: OFIS.id, projectId: p1.id, reason: "Artıq qaldı", docDate: daysAgo(3), lines: [{ variantId: v(pipe), qty: 12, condition: "GOOD" }, { variantId: v(flange), qty: 1, condition: "DEFECTIVE", targetWarehouseId: KAR.id }] });
+  const r1 = await createStockDoc(A, { kind: "RETURN_FROM_PROJECT", warehouseId: SAHE.id, projectId: p1.id, reason: "Artıq qaldı", docDate: daysAgo(3), lines: [{ variantId: v(pipe), qty: 12, condition: "GOOD" }, { variantId: v(flange), qty: 1, condition: "DEFECTIVE", targetWarehouseId: KAR.id }] });
   await postStockDoc(A, r1.id);
   const r2 = await createStockDoc(A, { kind: "RETURN_FROM_EMPLOYEE", warehouseId: OFIS.id, employeeId: E["DEMO-W02"], reason: "Ölçü uyğun gəlmədi", docDate: daysAgo(2), lines: [{ variantId: v(coverall, "54"), qty: 1, condition: "GOOD" }] });
   await postStockDoc(A, r2.id);
@@ -122,9 +128,6 @@ async function main() {
   // ── Transfer Office → Field ──
   const t = await createStockDoc(A, { kind: "TRANSFER", warehouseId: OFIS.id, toWarehouseId: SAHE.id, recipientName: "DEMO Sürücü", docDate: daysAgo(5), lines: [{ variantId: v(helmet), qty: 8 }, { variantId: v(vest, "L"), qty: 5 }] });
   await postStockDoc(A, t.id);
-
-  // ── Reservation ──
-  await createReservation(A, { warehouseId: OFIS.id, variantId: v(coverall, "52"), qty: 4, projectId: p3.id, reason: "DEMO Sumqayıt — yeni briqada üçün" });
 
   // ── Procurement: MR → full approval → PO → partial GRN (60/100 + 4/4 …) ──
   const mr1 = await createMR(A, {
@@ -170,11 +173,12 @@ async function main() {
     lines: [{ variantId: v(vest, "2XL"), description: "Siqnal jileti 2XL", size: "2XL", uomCode: "PCS", qtyRequired: 10, surplusPct: 0 }],
   } as never);
 
-  // A draft issue (shows draft → post flow)
-  await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: OFIS.id, projectId: p2.id, recipientName: "DEMO Usta Vüqar", docDate: new Date(), lines: [{ variantId: v(helmet), qty: 5 }, { variantId: v(gloves), qty: 20 }] });
+  // A draft transfer (shows a saved-but-not-sent document)
+  const p2site = await db.warehouse.findUniqueOrThrow({ where: { projectId: p2.id } });
+  await createStockDoc(A, { kind: "TRANSFER", warehouseId: OFIS.id, toWarehouseId: p2site.id, recipientName: "DEMO Usta Vüqar", docDate: new Date(), lines: [{ variantId: v(helmet), qty: 5 }, { variantId: v(gloves), qty: 20 }] });
 
   await demoSites(A);
-  console.log("DEMO məlumatlar yaradıldı: 3 layihə (hər birinin sahə anbarı), 8 işçi, 2 tədarükçü, 15 material (ölçülərlə), 2 açılış sayımı, layihə/PPE məxaricləri, qaytarmalar, köçürmə, rezerv, MR→PO→qismən GRN, təsdiq gözləyən MR və qaralamalar.");
+  console.log("DEMO məlumatlar yaradıldı: 3 layihə (hər birinin sahə anbarı), 8 işçi, 2 tədarükçü, 15 material (ölçülərlə), 2 açılış sayımı, layihə/PPE məxaricləri, qaytarmalar, köçürmə, MR→PO→qismən GRN, təsdiq gözləyən MR və qaralamalar.");
 }
 
 

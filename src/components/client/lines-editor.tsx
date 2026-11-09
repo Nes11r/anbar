@@ -28,7 +28,6 @@ export function LinesEditor({
   showCondition,
   quarantineWarehouses = [],
   employeeGroup,
-  allowOverride,
   errors = {},
 }: {
   lines: EditorLine[];
@@ -75,12 +74,8 @@ export function LinesEditor({
                     {l.variant && dupes.has(l.variant.id) && <p className="field-err mt-1">Bu variant artıq başqa sətirdə var — birləşdirin.</p>}
                     {mismatch && (
                       <div className="mt-1 rounded border border-warn bg-warn-soft p-2 text-xs">
-                        <b>Təyinat uyğunsuzluğu:</b> material {GROUP_LABEL[l.variant!.workerGroup]} üçündür, işçi isə {GROUP_LABEL[employeeGroup!]}.
-                        {allowOverride ? (
-                          <input className="input mt-1 h-8" placeholder="Override səbəbi (məcburi)" value={l.overrideReason ?? ""} onChange={(e) => upd(l.key, { overrideReason: e.target.value })} />
-                        ) : (
-                          <span> Bu təhvil üçün anbar müdirinin icazəsi lazımdır.</span>
-                        )}
+                        <b>Diqqət:</b> material {GROUP_LABEL[l.variant!.workerGroup]} üçündür, işçi isə {GROUP_LABEL[employeeGroup!]}. Düzdürsə, davam edin — sənəddə qeyd olunacaq.
+                        <input className="input mt-1 h-8" placeholder="Səbəb (istəyə görə), məs. ölçü bitib" value={l.overrideReason ?? ""} onChange={(e) => upd(l.key, { overrideReason: e.target.value })} />
                       </div>
                     )}
                   </td>

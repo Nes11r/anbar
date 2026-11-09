@@ -5,7 +5,7 @@ import { fmtDate, fmtQty } from "@/lib/format";
 import { Badge, Card, Empty, PageHeader } from "@/components/ui";
 import { siteOverview } from "@/server/services/sites";
 
-export const metadata = { title: "Sahə anbarları" };
+export const metadata = { title: "Layihələr və sahələr" };
 export const dynamic = "force-dynamic";
 
 export default async function SitesPage() {
@@ -16,9 +16,12 @@ export default async function SitesPage() {
     <>
       <PageHeader print={["Anbar müdiri", "Rəhbər"]}
         viewOnly={{ role: user.role, perm: "site.report", action: "gündəlik sahə hesabatını daxil etmək" }}
-        title="Sahə anbarları"
+        title="Layihələr və sahələr"
         subtitle="Hər layihənin sahəsində materialın cəmi: sahə anbarında stokda + işçilərin üzərində. Sahədən gələn tələbi bura baxıb yoxlayın."
-        actions={can(user.role, "stockdoc.edit") && !scopeProjectId(user) && <Link className="btn btn-primary" href="/movements/new?kind=TRANSFER">+ Ofisdən sahəyə göndər</Link>}
+        actions={<>
+          {can(user.role, "stockdoc.edit") && !scopeProjectId(user) && <Link className="btn btn-primary" href="/movements/new?kind=TRANSFER">+ Ofisdən sahəyə göndər</Link>}
+          {can(user.role, "project.manage") && !scopeProjectId(user) && <Link className="btn" href="/projects/new">+ Yeni layihə</Link>}
+        </>}
       />
       {user.role === "CLIENT" && !user.projectId ? (
         <div className="alert alert-info">Hesabınız hələ layihəyə bağlanmayıb. Administrator layihənizi seçdikdən sonra yalnız öz layihənizin məlumatlarını görəcəksiniz.</div>

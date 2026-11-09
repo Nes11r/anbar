@@ -65,16 +65,23 @@ test.describe.serial("critical journey", () => {
     await page.getByRole("button", { name: "Təsdiq et" }).click();
     await expect(page.getByText("Təsdiqləndi: 1 jurnal qeydi")).toBeVisible();
 
-    // Issue 3 to project
-    await page.goto("/movements/new?kind=ISSUE_PROJECT");
-    await sel(page, "Layihə").selectOption({ label: "E2E01 — E2E test layihəsi" });
-    await page.getByLabel("Təhvil alan").fill("Usta Test");
+    // Office → site: 5 go to the project's site warehouse (one step, lands on the site page)
+    await page.goto("/movements/new?kind=TRANSFER");
+    await page.locator('label:has(> span:text-is("Hansı layihəyə göndərilir")) select').selectOption({ label: "E2E01 — E2E test layihəsi" });
+    await page.locator('label:has(> span:text-is("Daşıyan şəxs")) input').fill("Sürücü Test");
+    await pickVariant(page, 0, "E2E", /42/);
+    await page.getByLabel("Miqdar 1").fill("5");
+    await page.getByRole("button", { name: "Təsdiqlə", exact: true }).click();
+    await expect(page.getByRole("heading", { name: /Sahə: E2E01/ })).toBeVisible();
+
+    // 3 used on site (consumption is recorded only from the project's site warehouse)
+    await page.getByRole("link", { name: "Sahədə istifadə (sərf)" }).click();
+    await page.locator('label:has(> span:text-is("Kim istifadə etdi (usta / briqada)")) input').fill("Usta Test");
     await pickVariant(page, 0, "E2E", /42/);
     await page.getByLabel("Miqdar 1").fill("3");
-    // one-step: "Təsdiqlə" creates and posts immediately (button disables while pending)
     await page.getByRole("button", { name: "Təsdiqlə", exact: true }).click();
     await expect(page.getByText(/Təsdiqləndi: ISP-.*Qalıq yeniləndi\./)).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Layihəyə məxaric ISP-/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Sahə: E2E01/ })).toBeVisible();
 
     // Stock = 7 everywhere, survives reload
     await page.goto("/stock?q=E2E");
@@ -100,7 +107,7 @@ test.describe.serial("critical journey", () => {
     await page.goto("/movements/new?kind=ISSUE_PROJECT");
     await expect(page.getByRole("heading", { name: /giriş icazəniz yoxdur/ })).toBeVisible();
     await page.goto("/movements");
-    await expect(page.getByRole("link", { name: "+ Layihəyə məxaric" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "+ Sahəyə göndər" })).toHaveCount(0);
     // view-only sections say who can change them
     await expect(page.getByText("Bu bölmə sizin üçün yalnız baxış üçündür.")).toBeVisible();
     await page.goto("/catalog");
@@ -208,7 +215,7 @@ test("registration: user picks account type, cannot log in until admin approves"
   await page.goto("/stock");
   await expect(page).toHaveURL(/\/forbidden/);
   await page.goto("/sites");
-  await expect(page.getByRole("heading", { name: "Sahə anbarları" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Layihələr və sahələr" })).toBeVisible();
   await expect(page.getByRole("link", { name: "+ Ofisdən sahəyə göndər" })).toHaveCount(0);
   await page.goto("/mr");
   await expect(page.getByRole("link", { name: "+ Yeni MR" })).toHaveCount(0);
@@ -230,7 +237,7 @@ test("site: office → site transfer shows up as site stock; daily report record
   // posts immediately and lands on the site warehouse page
   await expect(page.getByText(/Təsdiqləndi: .*Qalıq yeniləndi\./)).toBeVisible();
   await expect(page.getByRole("heading", { name: /Sahə: E2E01/ })).toBeVisible();
-  await expect(page.locator(".card", { hasText: "Sahə anbarında stokda" })).toContainText("2");
+  await expect(page.locator(".card", { hasText: "Sahə anbarında stokda" })).toContainText("4");
   await page.getByRole("link", { name: "+ Gündəlik hesabat" }).click();
   await page.getByLabel(/stokda$/).first().fill("1");
   await page.getByLabel(/işçilərdə$/).first().fill("0");

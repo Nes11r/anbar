@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser, requirePage } from "@/lib/auth";
+import { can } from "@/lib/rbac";
+import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
 import { fmtDate, fmtQty } from "@/lib/format";
 import { Card, Empty, Kpi, PageHeader } from "@/components/ui";
@@ -13,7 +15,9 @@ export default async function Dashboard() {
   const me = await getSessionUser();
   // a client only ever sees their own project: start on its site page
   if (me?.role === "CLIENT") redirect(me.projectId ? `/sites/${me.projectId}` : "/sites");
-  await requirePage("dashboard.view");
+  const user = await requirePage("dashboard.view");
+  const canMr = can(user.role, "mr.create");
+  const pendingMr = await db.materialRequest.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } });
   const [k, low, recent, top] = await Promise.all([dashboardKpis(), lowStock(8), recentMovements(10), topIssuedMaterials(90, 8)]);
   const isEmpty = k.uniqueSkus === 0 && recent.length === 0;
   return (
@@ -28,7 +32,7 @@ export default async function Dashboard() {
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Stokda unikal SKU" value={k.uniqueSkus} href="/stock?pos=1" />
         <Kpi label="Fiziki qalıq (cəmi vahid)" value={fmtQty(k.onHand)} hint="Bütün normal anbarlar" href="/stock" />
-        <Kpi label="Rezerv" value={fmtQty(k.reserved)} />
+        <Kpi label="Təsdiq gözləyən MR" value={pendingMr} href="/mr" tone={pendingMr > 0 ? "warn" : "default"} />
         <Kpi label="Kritik stok" value={k.critical} tone={k.critical > 0 ? "warn" : "default"} hint="Mövcud ≤ minimum" href="/stock?status=low" />
         <Kpi label="Gözlənilən sifariş (PO)" value={k.openPoCount} hint={`${fmtQty(k.openPoQty)} vahid gözlənilir`} href="/po?status=open" />
         <Kpi label="Bu ay qəbul (GRN)" value={fmtQty(k.receivedThisMonth)} href="/journal?type=RECEIPT" />
@@ -60,7 +64,7 @@ export default async function Dashboard() {
           )}
         </Card>
         <div className="flex flex-col gap-4">
-          <Card title="Aşağı qalıq xəbərdarlığı" pad={false} actions={<Link href="/stock?status=low" className="btn btn-sm">Hamısı</Link>}>
+          <Card title="Aşağı qalıq xəbərdarlığı" pad={false} actions={<>{low.length > 0 && canMr && <Link href="/mr/new?low=1" className="btn btn-sm btn-primary">MR yarat</Link>}<Link href="/stock?status=low" className="btn btn-sm">Hamısı</Link></>}>
             {low.length === 0 ? (
               <Empty title="Kritik material yoxdur" hint="Minimum ehtiyat təyin edilmiş materiallar mövcud qalıq minimuma çatanda burada görünür." />
             ) : (

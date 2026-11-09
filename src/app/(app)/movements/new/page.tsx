@@ -11,12 +11,12 @@ import { stockDocOptions } from "../options";
 export const metadata = { title: "Yeni əməliyyat" };
 
 const HINT: Record<StockDocKind, string> = {
-  ISSUE_PROJECT: "Layihəni seçin, stokda olan material və ölçünü seçin, miqdarı və təhvil alanı göstərin. Təsdiqdə anbardan atomik məxaric olunur.",
+  ISSUE_PROJECT: "Sahədə işdə istifadə olunan (sərf edilən) materialı qeyd edin: layihəni seçin — material həmin layihənin sahə anbarından silinir. Ofisdən layihəyə material göndərmək üçün “Sahəyə göndər”dən istifadə edin.",
   ISSUE_EMPLOYEE: "Anbarı seçin, işçinin adını və soyadını yazın, verilən materialları əlavə edin. Ayrıca işçi qeydiyyatı lazım deyil — sistem kimə nə verildiyini ad üzrə yadda saxlayır.",
-  RETURN_FROM_PROJECT: "Layihəyə xalis veriləndən çox qaytarıla bilməz. Qüsurlu material karantin anbarına düşür.",
+  RETURN_FROM_PROJECT: "Sərf kimi yazılmış, amma istifadə olunmayan material geri qaytarılır. Veriləndən çox qaytarıla bilməz; qüsurlu material karantinə düşür.",
   RETURN_FROM_EMPLOYEE: "İşçiyə xalis veriləndən çox geri alına bilməz.",
   RETURN_TO_SUPPLIER: "Qüsurlu və ya artıq malın tədarükçüyə qaytarılması.",
-  TRANSFER: "Ofisdən layihənin sahə anbarına göndərmə (layihə rəhbəri götürür) və ya anbarlar arası köçürmə. Ümumi qalıq dəyişmir, material sahədə “stokda” görünür.",
+  TRANSFER: "Ofisdən layihənin sahə anbarına göndərmə və ya sahədən artıq qalanı ofisə qaytarma. Ümumi qalıq dəyişmir.",
   ADJUSTMENT: "Səbəbli qalıq düzəlişi (itki, zədə). Təsdiqi yalnız anbar müdiri edə bilər.",
 };
 

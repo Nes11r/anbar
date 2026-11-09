@@ -15,6 +15,8 @@ export interface StockDocOptions {
   employees: { id: string; name: string; label: string; group: "ENGINEER" | "WORKER"; projectId: string | null }[];
   suppliers: { id: string; label: string }[];
   canOverride: boolean;
+  /** Project-limited users may only take material out of these warehouses (their site + quarantine). */
+  sourceWarehouseIds?: string[];
 }
 export interface StockDocInitial {
   kind: Kind; warehouseId: string; toWarehouseId?: string | null; projectId?: string | null; employeeId?: string | null; employeeName?: string | null; employeeGroup?: "ENGINEER" | "WORKER" | null; supplierId?: string | null;
@@ -31,11 +33,15 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
   const [h, setH] = useState<Omit<StockDocInitial, "lines">>(
     (initial ? { ...initial, employeeName: initial.employeeName ?? options.employees.find((e) => e.id === initial.employeeId)?.name ?? null } : null) ?? {
       kind,
-      warehouseId: preset?.warehouseId && options.warehouses.some((w) => w.id === preset.warehouseId) ? preset.warehouseId : siteOf(presetEmp?.projectId) ?? normal[0]?.id ?? "",
+      warehouseId: preset?.warehouseId && options.warehouses.some((w) => w.id === preset.warehouseId)
+        ? preset.warehouseId
+        : kind === "ISSUE_PROJECT"
+        ? options.warehouses.find((w) => w.projectId && (!options.sourceWarehouseIds || options.sourceWarehouseIds.includes(w.id)) && options.sourceWarehouseIds)?.id ?? ""
+        : siteOf(presetEmp?.projectId) ?? (options.sourceWarehouseIds ? normal.find((w) => options.sourceWarehouseIds!.includes(w.id))?.id : undefined) ?? normal.find((w) => !w.projectId)?.id ?? normal[0]?.id ?? "",
       toWarehouseId: preset?.toWarehouseId ?? null,
       employeeId: presetEmp?.id ?? null,
       employeeName: presetEmp?.name ?? null,
-      projectId: presetEmp?.projectId ?? null,
+      projectId: presetEmp?.projectId ?? (kind === "ISSUE_PROJECT" || kind === "RETURN_FROM_PROJECT" ? options.warehouses.find((w) => w.id === preset?.warehouseId || (kind === "ISSUE_PROJECT" && options.sourceWarehouseIds?.includes(w.id) && w.projectId))?.projectId ?? null : null),
       docDate: todayIso(),
     },
   );
@@ -61,11 +67,16 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
   };
   const projectLabel = (pid: string) => options.projects.find((p) => p.id === pid)?.label;
   const siteTargets = options.warehouses
-    .filter((w) => w.projectId && w.id !== h.warehouseId)
+    .filter((w) => w.projectId && w.id !== h.warehouseId && !options.warehouses.find((x) => x.id === h.warehouseId)?.projectId)
     .map((w) => ({ id: w.id, label: projectLabel(w.projectId!) ?? w.name }))
     .sort((a, b) => a.label.localeCompare(b.label, "az"));
   const otherTargets = options.warehouses.filter((w) => !w.projectId && w.id !== h.warehouseId);
-  const srcWarehouses =kind === "TRANSFER" || kind === "ADJUSTMENT" || kind === "RETURN_TO_SUPPLIER" ? options.warehouses : normal;
+  const allowedSrc = (w: { id: string }) => !options.sourceWarehouseIds || options.sourceWarehouseIds.includes(w.id);
+  const srcWarehouses = (kind === "ISSUE_PROJECT"
+    ? options.warehouses.filter((w) => w.projectId)
+    : kind === "TRANSFER" || kind === "ADJUSTMENT" || kind === "RETURN_TO_SUPPLIER" ? options.warehouses : normal
+  ).filter(allowedSrc);
+  const fromSite = !!whProject;
 
   const submit = () => {
     const filled = lines.filter((l) => l.variant);
@@ -113,15 +124,16 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
     <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <section className="card grid gap-4 p-4 md:grid-cols-4">
         <label className="label">
-          <span className="req">{kind === "TRANSFER" ? "Haradan (mənbə anbar)" : kind.startsWith("RETURN_FROM") ? "Qəbul edən anbar" : "Anbar"}</span>
-          <select className="select" value={h.warehouseId} onChange={(e) => { const v = e.target.value; setH((x) => (kind === "ISSUE_EMPLOYEE" ? { ...x, warehouseId: v, employeeId: null, projectId: null } : { ...x, warehouseId: v })); }}>
+          <span className="req">{kind === "TRANSFER" ? "Haradan" : kind.startsWith("RETURN_FROM") ? "Qəbul edən anbar" : kind === "ISSUE_PROJECT" ? "Hansı sahədə istifadə olundu" : "Anbar"}</span>
+          <select className="select" value={h.warehouseId} onChange={(e) => { const v = e.target.value; const pid = options.warehouses.find((w) => w.id === v)?.projectId ?? null; setH((x) => (kind === "ISSUE_EMPLOYEE" ? { ...x, warehouseId: v, employeeId: null, projectId: null } : kind === "ISSUE_PROJECT" ? { ...x, warehouseId: v, projectId: pid } : { ...x, warehouseId: v })); }}>
+            {kind === "ISSUE_PROJECT" && <option value="">— layihənin sahəsini seçin —</option>}
             {srcWarehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         </label>
         {kind === "TRANSFER" && (
-          <label className="label md:col-span-2"><span className="req">Hansı layihəyə göndərilir</span>
+          <label className="label md:col-span-2"><span className="req">{fromSite ? "Hara qaytarılır" : "Hansı layihəyə göndərilir"}</span>
             <select className="select" value={h.toWarehouseId ?? ""} onChange={(e) => set("toWarehouseId", e.target.value)} aria-invalid={!!errors.toWarehouseId}>
-              <option value="">— layihəni seçin —</option>
+              <option value="">— seçin —</option>
               <optgroup label="Layihənin sahə anbarı">
                 {siteTargets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
               </optgroup>
@@ -134,7 +146,7 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
             {errors.toWarehouseId && <span className="field-err">{errors.toWarehouseId}</span>}
           </label>
         )}
-        {(kind === "ISSUE_PROJECT" || kind === "RETURN_FROM_PROJECT") && (
+        {kind === "RETURN_FROM_PROJECT" && (
           <label className="label md:col-span-2"><span className="req">Layihə</span>
             <select className="select" value={h.projectId ?? ""} onChange={(e) => set("projectId", e.target.value)} aria-invalid={!!errors.projectId}>
               <option value="">— seçin —</option>
@@ -179,7 +191,7 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
         )}
         <label className="label"><span className="req">Tarix</span><input className="input" type="date" value={h.docDate} max={todayIso()} onChange={(e) => set("docDate", e.target.value)} /></label>
         {(kind === "ISSUE_PROJECT" || kind === "ISSUE_EMPLOYEE" || kind === "TRANSFER") && (
-          <label className="label"><span className={kind === "ISSUE_PROJECT" || kind === "TRANSFER" ? "req" : undefined}>{kind === "TRANSFER" ? "Daşıyan şəxs" : "Təhvil alan"}</span><input className="input" value={h.recipientName ?? ""} onChange={(e) => set("recipientName", e.target.value)} aria-invalid={!!errors.recipientName} placeholder={kind === "TRANSFER" ? "Ad, soyad" : undefined} />{errors.recipientName && <span className="field-err">{errors.recipientName}</span>}</label>
+          <label className="label"><span className={kind === "ISSUE_PROJECT" || kind === "TRANSFER" ? "req" : undefined}>{kind === "TRANSFER" ? "Daşıyan şəxs" : kind === "ISSUE_PROJECT" ? "Kim istifadə etdi (usta / briqada)" : "Təhvil alan"}</span><input className="input" value={h.recipientName ?? ""} onChange={(e) => set("recipientName", e.target.value)} aria-invalid={!!errors.recipientName} placeholder={kind === "TRANSFER" ? "Ad, soyad" : undefined} />{errors.recipientName && <span className="field-err">{errors.recipientName}</span>}</label>
         )}
         {(kind === "ADJUSTMENT" || kind.startsWith("RETURN")) && (
           <label className="label md:col-span-2"><span className={kind === "ADJUSTMENT" ? "req" : undefined}>Səbəb</span><input className="input" value={h.reason ?? ""} onChange={(e) => set("reason", e.target.value)} aria-invalid={!!errors.reason} placeholder={kind === "ADJUSTMENT" ? "məs. zədələnmə, itki, sayım fərqi" : ""} /></label>

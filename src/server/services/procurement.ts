@@ -62,21 +62,26 @@ export const mrSchema = z
   });
 export type MRInput = z.infer<typeof mrSchema>;
 
-async function availableByVariant(c: Tx | typeof db, ids: string[]) {
+/**
+ * Stock that can really cover this project's request: the office (non-project) warehouses and the
+ * project's own site — never what sits on OTHER projects' sites.
+ */
+async function availableByVariant(c: Tx | typeof db, ids: string[], projectId: string) {
   if (!ids.length) return new Map<string, Prisma.Decimal>();
   const rows = await c.$queryRaw<{ variantId: string; avail: string }[]>`
     SELECT b."variantId"::text AS "variantId", SUM(b."onHand" - b.reserved)::text AS avail
     FROM stock_balances b JOIN warehouses w ON w.id = b."warehouseId"
-    WHERE w.type = 'NORMAL' AND b."variantId" = ANY(${ids}::uuid[]) GROUP BY b."variantId"`;
+    WHERE w.type = 'NORMAL' AND w."isActive" AND (w."projectId" IS NULL OR w."projectId" = ${projectId}::uuid)
+      AND b."variantId" = ANY(${ids}::uuid[]) GROUP BY b."variantId"`;
   return new Map(rows.map((r) => [r.variantId, D(r.avail)]));
 }
 
-async function buildMrLines(c: Tx | typeof db, lines: MRInput["lines"]) {
+async function buildMrLines(c: Tx | typeof db, lines: MRInput["lines"], projectId: string) {
   const ids = lines.map((l) => l.variantId).filter((x): x is string => !!x);
   if (ids.length) await assertVariantsUsable(c, ids);
   const units = await c.unit.findMany();
   const unitMap = new Map(units.map((u) => [u.code, u]));
-  const avail = await availableByVariant(c, ids);
+  const avail = await availableByVariant(c, ids, projectId);
   let total = D(0);
   const rows = lines.map((l, i) => {
     const u = unitMap.get(l.uomCode);
@@ -141,7 +146,7 @@ export async function createMR(actor: Actor, input: MRInput) {
   const project = await db.project.findUnique({ where: { id: d.projectId } });
   if (!project || !project.isActive) throw new AppError("Layihə tapılmadı və ya deaktivdir.", "VALIDATION");
   return withTx(async (tx) => {
-    const { rows, total } = await buildMrLines(tx, d.lines);
+    const { rows, total } = await buildMrLines(tx, d.lines, d.projectId);
     // MR-[Project Code]-[Discipline Code]-[Sequence]
     const key = `MR-${project.code}-${d.discipline}`;
     const seq = await tx.$queryRaw<{ n: number }[]>`
@@ -165,7 +170,7 @@ export async function updateMR(actor: Actor, id: string, version: number, input:
     if (!cur) throw new NotFoundError("MR");
     if (cur.requesterId !== actor.id && !isLeadership(actor.role)) throw new ForbiddenError("MR-i yalnız onu yaradan və ya rəhbərlik dəyişə bilər.");
     if (cur.projectId !== d.projectId || cur.discipline !== d.discipline) throw new AppError("MR nömrəsi layihə və disiplinə bağlıdır; onları dəyişmək üçün yeni MR yaradın.");
-    const { rows, total } = await buildMrLines(tx, d.lines);
+    const { rows, total } = await buildMrLines(tx, d.lines, d.projectId);
     const r = await tx.materialRequest.updateMany({
       where: { id, version, status: { in: ["DRAFT", "RETURNED"] } },
       data: { ...mrHeader(d), estimatedValue: total, version: { increment: 1 } },

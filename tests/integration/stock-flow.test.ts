@@ -175,18 +175,17 @@ describe("Ledger və qalıq", () => {
     expect(Number(qb!.onHand)).toBe(1);
   });
 
-  it("işçiyə PPE: təyinat uyğunsuzluğu səbəbsiz bloklanır, səlahiyyətli override audit edilir", async () => {
+  it("işçiyə PPE: təyinat uyğunsuzluğu bloklamır, amma sənəddə və auditdə qeyd olunur", async () => {
     const v = (await shoe(["42"], "ENGINEER")).variants[0];
     await opening(v.id, 3);
     const emp = await saveEmployee(wm, null, { code: "E1", fullName: "Test Fəhlə", group: "WORKER", projectId: B.pA.id, isActive: true });
-    await expect(createStockDoc(sk, { kind: "ISSUE_EMPLOYEE", warehouseId: B.wh.id, employeeId: emp.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }] })).rejects.toThrow(/səbəb/);
-    await expect(createStockDoc(sk, { kind: "ISSUE_EMPLOYEE", warehouseId: B.wh.id, employeeId: emp.id, docDate: today, lines: [{ variantId: v.id, qty: 1, overrideReason: "Ölçü yoxdur" }] })).rejects.toThrow(/səlahiyyət/);
-    const d = await createStockDoc(wm, { kind: "ISSUE_EMPLOYEE", warehouseId: B.wh.id, employeeId: emp.id, docDate: today, lines: [{ variantId: v.id, qty: 1, overrideReason: "Fəhlə ölçüsü bitib" }] });
-    await postStockDoc(wm, d.id);
+    const d = await createStockDoc(sk, { kind: "ISSUE_EMPLOYEE", warehouseId: B.wh.id, employeeId: emp.id, docDate: today, lines: [{ variantId: v.id, qty: 1 }] });
+    expect((await db.stockDocLine.findFirstOrThrow({ where: { docId: d.id } })).overrideReason).toMatch(/Təyinat fərqli/);
+    await postStockDoc(sk, d.id);
     // employee issue is attributed to employee's project, counted once
     const rep = (await projectReport(B.pA.id))[0];
     expect([Number(rep.issuedEmployee), Number(rep.issuedProject), Number(rep.net)]).toEqual([1, 0, 1]);
-    expect(await db.auditLog.count({ where: { entityId: d.id, summary: { contains: "override" } } })).toBe(1);
+    expect(await db.auditLog.count({ where: { entityId: d.id, summary: { contains: "təyinat fərqi" } } })).toBe(1);
   });
 
   it("ledger append-only: UPDATE/DELETE DB səviyyəsində bloklanır", async () => {

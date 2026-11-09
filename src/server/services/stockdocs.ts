@@ -66,6 +66,12 @@ async function validateHeader(c: Tx | typeof db, d: StockDocInput) {
       if (!p) throw new NotFoundError("Layihə");
       if (d.kind === "ISSUE_PROJECT" && !p.isActive) throw new AppError("Deaktiv layihəyə material verilə bilməz.", "VALIDATION");
       if (d.kind === "ISSUE_PROJECT" && !d.recipientName) throw new AppError("Təhvil alan şəxs göstərilməlidir.", "VALIDATION", { recipientName: "Təhvil alanı yazın" });
+      if (d.kind === "ISSUE_PROJECT") {
+        // one way to a project: office → site warehouse (transfer) → used on site. Never straight from the office.
+        const [site, src] = await Promise.all([c.warehouse.findUnique({ where: { projectId: d.projectId } }), c.warehouse.findUnique({ where: { id: d.warehouseId } })]);
+        if ((site && d.warehouseId !== site.id) || (src?.projectId && src.projectId !== d.projectId))
+          throw new AppError("Layihədə istifadə yalnız həmin layihənin sahə anbarından qeyd olunur. Ofisdən material əvvəlcə “Sahəyə göndər” ilə sahəyə göndərilir.", "VALIDATION", { warehouseId: "Layihənin sahə anbarını seçin" });
+      }
       break;
     }
     case "ISSUE_EMPLOYEE":
@@ -109,7 +115,11 @@ async function assertDocScope(c: Tx | typeof db, actor: Actor, d: StockDocInput)
   const site = await c.warehouse.findUnique({ where: { projectId: actor.projectId } });
   const msg = "Bu əməliyyat sizin layihənizin sahə anbarı ilə məhdudlaşır.";
   if (!site || d.warehouseId !== site.id) throw new ForbiddenError(msg);
-  if (d.kind === "TRANSFER") throw new ForbiddenError("Anbarlararası köçürməni ofis anbarı edir. Sahə anbarından yalnız işçilərə təhvil və qaytarma qeyd olunur.");
+  if (d.kind === "TRANSFER") {
+    // a site may send its leftovers back to the office (a non-project warehouse), nothing else
+    const to = d.toWarehouseId ? await c.warehouse.findUnique({ where: { id: d.toWarehouseId } }) : null;
+    if (!to || to.projectId) throw new ForbiddenError("Sahədən yalnız ofis anbarına qaytarmaq olar. Başqa layihəyə göndərməni ofis edir.");
+  }
   if (d.projectId && d.projectId !== actor.projectId) throw new ForbiddenError(msg);
   for (const l of d.lines) {
     if (l.targetWarehouseId && l.targetWarehouseId !== site.id) {
@@ -123,27 +133,27 @@ async function assertDocScope(c: Tx | typeof db, actor: Actor, d: StockDocInput)
   }
 }
 
-/** Worker-group check for employee PPE issue. Returns list of mismatching SKUs lacking an override reason. */
-async function checkGroupCompatibility(c: Tx | typeof db, actor: Actor, d: StockDocInput) {
-  if (d.kind !== "ISSUE_EMPLOYEE" || !d.employeeId) return;
+/**
+ * Worker-group check for employee PPE issue (engineer clothes to a worker or vice versa).
+ * Not a blocker — the storekeeper knows the situation on site. Mismatching lines are marked
+ * (reason kept or filled in) so the document and the audit log show it.
+ */
+async function markGroupMismatches(c: Tx | typeof db, d: StockDocInput): Promise<StockDocInput> {
+  if (d.kind !== "ISSUE_EMPLOYEE" || !d.employeeId) return d;
   const emp = await c.employee.findUniqueOrThrow({ where: { id: d.employeeId } });
   const vs = await c.materialVariant.findMany({
     where: { id: { in: d.lines.map((l) => l.variantId) } },
-    select: { id: true, sku: true, material: { select: { workerGroup: true } } },
+    select: { id: true, material: { select: { workerGroup: true } } },
   });
   const byId = new Map(vs.map((v) => [v.id, v]));
-  for (const l of d.lines) {
-    const v = byId.get(l.variantId)!;
-    if (!groupCompatible(v.material.workerGroup, emp.group)) {
-      if (!l.overrideReason || l.overrideReason.length < 3) {
-        throw new AppError(
-          `${v.sku}: material ${v.material.workerGroup === "ENGINEER" ? "mühəndis" : "fəhlə"} üçündür, işçi isə ${emp.group === "ENGINEER" ? "mühəndisdir" : "fəhlədir"}. Davam etmək üçün səbəb yazın (səlahiyyətli şəxs).`,
-          "GROUP_MISMATCH",
-        );
-      }
-      if (!can(actor.role, "issue.override")) throw new ForbiddenError("Uyğunsuz təyinatla təhvil üçün səlahiyyətiniz yoxdur.");
-    }
-  }
+  return {
+    ...d,
+    lines: d.lines.map((l) => {
+      const v = byId.get(l.variantId);
+      if (!v || groupCompatible(v.material.workerGroup, emp.group)) return l;
+      return { ...l, overrideReason: l.overrideReason?.trim() || `Təyinat fərqli: material ${v.material.workerGroup === "ENGINEER" ? "mühəndis" : "fəhlə"} üçündür, işçi ${emp.group === "ENGINEER" ? "mühəndisdir" : "fəhlədir"}` };
+    }),
+  };
 }
 
 const normName = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -179,10 +189,10 @@ async function resolveEmployeeByName(actor: Actor, d: StockDocInput): Promise<St
 
 export async function createStockDoc(actor: Actor, input: StockDocInput) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
-  const d = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
-  await validateHeader(db, d);
-  await assertDocScope(db, actor, d);
-  await checkGroupCompatibility(db, actor, d);
+  const d0 = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
+  await validateHeader(db, d0);
+  await assertDocScope(db, actor, d0);
+  const d = await markGroupMismatches(db, d0);
   return withTx(async (tx) => {
     const number = await nextNumber(tx, KIND_PREFIX[d.kind], d.docDate);
     const doc = await tx.stockDocument.create({
@@ -223,10 +233,10 @@ export async function createStockDoc(actor: Actor, input: StockDocInput) {
 
 export async function updateStockDoc(actor: Actor, id: string, version: number, input: StockDocInput) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
-  const d = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
-  await validateHeader(db, d);
-  await assertDocScope(db, actor, d);
-  await checkGroupCompatibility(db, actor, d);
+  const d0 = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
+  await validateHeader(db, d0);
+  await assertDocScope(db, actor, d0);
+  const d = await markGroupMismatches(db, d0);
   return withTx(async (tx) => {
     const cur = await tx.stockDocument.findUnique({ where: { id } });
     if (!cur) throw new NotFoundError("Sənəd");
@@ -281,6 +291,11 @@ export async function netHeld(c: Tx | typeof db, by: { projectId?: string; emplo
     const q = D(r._sum.qty ?? 0);
     m.set(r.variantId, (m.get(r.variantId) ?? D(0)).plus(r.entryType === "ISSUE" ? q : q.neg()));
   }
+  // a worker does not "hold" consumables (gloves, electrodes…): they are used up when handed out
+  if (by.employeeId && m.size) {
+    const used = await c.materialVariant.findMany({ where: { id: { in: [...m.keys()] }, material: { isConsumable: true } }, select: { id: true } });
+    for (const u of used) m.delete(u.id);
+  }
   return m;
 }
 
@@ -300,7 +315,6 @@ export async function postStockDoc(actor: Actor, id: string) {
     } as unknown as StockDocInput;
     await validateHeader(tx, input);
     await assertDocScope(tx, actor, input);
-    await checkGroupCompatibility(tx, actor, input);
 
     // Serialise returns per project / employee so two parallel returns cannot exceed what was issued
     if (doc.kind === "RETURN_FROM_PROJECT" && doc.projectId) {
@@ -361,7 +375,7 @@ export async function postStockDoc(actor: Actor, id: string) {
     await tx.stockDocument.update({ where: { id }, data: { status: "POSTED", postedById: actor.id, postedAt: new Date(), version: { increment: 1 }, ...(employeeProjectId ? { projectId: employeeProjectId } : {}) } });
     await statusChange(tx, actor, "StockDocument", id, "DRAFT", "POSTED");
     const overrides = doc.lines.filter((l) => l.overrideReason);
-    await audit(tx, actor, "POST", "StockDocument", id, `${doc.number} təsdiqləndi (${ms.length} jurnal qeydi)${overrides.length ? `; təyinat override: ${overrides.map((o) => o.overrideReason).join("; ")}` : ""}`);
+    await audit(tx, actor, "POST", "StockDocument", id, `${doc.number} təsdiqləndi (${ms.length} jurnal qeydi)${overrides.length ? `; təyinat fərqi: ${overrides.map((o) => o.overrideReason).join("; ")}` : ""}`);
     return { alreadyPosted: false };
   });
 }

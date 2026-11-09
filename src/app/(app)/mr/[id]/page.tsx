@@ -121,7 +121,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
         <Card title="3. Material cədvəli" className="xl:col-span-2" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>#</th><th>Kod</th><th>Təsvir</th><th>Ölçü</th><th>Grade</th><th>UoM</th><th className="num">Tələb</th><th className="num">Stokda (bütün anbarlar)</th><th className="num">Sahədə: stok / işçilərdə</th><th className="num">Surplus%</th><th className="num">Net sifariş</th>{!isClient && <th className="num">Vahid qiymət</th>}<th className="num">Sifariş edilib</th><th>Tarix</th></tr></thead>
+              <thead><tr><th>#</th><th>Kod</th><th>Təsvir</th><th>Ölçü</th><th>Grade</th><th>UoM</th><th className="num">Tələb</th><th className="num">Stokda (ofis + öz sahəsi)</th><th className="num">Sahədə: stok / işçilərdə</th><th className="num">Surplus%</th><th className="num">Net sifariş</th>{!isClient && <th className="num">Vahid qiymət</th>}<th className="num">Sifariş edilib</th><th>Tarix</th></tr></thead>
               <tbody>{mr.lines.map((l) => {
                 const ordered = l.poLines.filter((p) => p.po.status !== "CANCELLED" && p.po.status !== "DRAFT").reduce((a, p) => a + Number(p.qtyOrdered), 0);
                 return (

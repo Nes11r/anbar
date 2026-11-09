@@ -49,7 +49,7 @@ export default async function MaterialPage({ params, searchParams }: { params: P
           version={m.version}
           initial={{
             code: m.code, originalCode: m.originalCode, nameAz: m.nameAz, nameEn: m.nameEn, categoryId: m.categoryId, subcategory: m.subcategory, workerGroup: m.workerGroup,
-            brand: m.brand, model: m.model, description: m.description, sizeType: m.sizeType, color: m.color, unitCode: m.unitCode, supplierId: m.supplierId, minStock: Number(m.minStock), notes: m.notes,
+            brand: m.brand, model: m.model, description: m.description, sizeType: m.sizeType, color: m.color, unitCode: m.unitCode, supplierId: m.supplierId, minStock: Number(m.minStock), isConsumable: m.isConsumable, notes: m.notes,
             variants: m.variants.map((v) => ({ id: v.id, size: v.size, color: v.color, sku: v.sku, barcode: v.barcode, minStock: v.minStock == null ? null : Number(v.minStock), isActive: v.isActive, used: used.has(v.id) })),
           }}
         />

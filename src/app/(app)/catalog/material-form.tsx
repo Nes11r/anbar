@@ -129,6 +129,10 @@ export function MaterialForm({
             {units.map((u) => <option key={u.code} value={u.code}>{u.label} ({u.code})</option>)}
           </select>
         </label>
+        <label className="label md:col-span-3 flex-row items-start gap-2 rounded-md border border-line p-3 font-normal">
+          <input type="checkbox" className="mt-0.5 h-4 w-4" checked={!!f.isConsumable} onChange={(e) => set("isConsumable", e.target.checked)} />
+          <span><b className="text-ink">Sərf materialıdır</b> (əlcək, elektrod, disk və s.) — işçiyə veriləndə istifadə olunmuş sayılır, “işçilərdə” qalmır və geri qaytarılmır.</span>
+        </label>
         <label className="label"><span>Minimum ehtiyat (hər variant üçün)</span><input className="input" type="number" min={0} step="any" value={f.minStock ?? 0} onChange={(e) => set("minStock", Number(e.target.value))} /></label>
         <label className="label md:col-span-3"><span>Təsvir</span><textarea className="textarea" value={f.description ?? ""} onChange={(e) => set("description", e.target.value)} maxLength={2000} /></label>
         <label className="label md:col-span-3"><span>Qeyd</span><input className="input" value={f.notes ?? ""} onChange={(e) => set("notes", e.target.value)} /></label>

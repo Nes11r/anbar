@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requirePage } from "@/lib/auth";
+import { can } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { fmtQty, sp } from "@/lib/format";
 import { Card, Empty, FilterChips, GroupBadge, PageHeader, Pagination, StockStatus } from "@/components/ui";
@@ -21,14 +22,31 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
     db.category.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
+  // defective goods wait in quarantine: give a clear way to write them off (or send back to the supplier)
+  const quarantine = await db.$queryRaw<{ id: string; name: string; q: string }[]>`
+    SELECT w.id::text AS id, w.name, SUM(b."onHand")::text AS q FROM stock_balances b JOIN warehouses w ON w.id = b."warehouseId"
+    WHERE w.type = 'QUARANTINE' AND b."onHand" > 0 GROUP BY w.id, w.name`;
   return (
     <>
+      {quarantine.length > 0 && can(user.role, "stockdoc.edit") && (
+        <div className="alert alert-warn no-print mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="flex-1"><b>Karantində qüsurlu mal var:</b> {quarantine.map((x) => `${x.name} — ${fmtQty(x.q)} vahid`).join("; ")}. Yararsızdırsa silin, ya da tədarükçüyə qaytarın.</span>
+          {quarantine.map((x) => (
+            <span key={x.id} className="flex gap-2">
+              <Link className="btn btn-sm" href={`/stock?wh=${x.id}`}>Bax</Link>
+              <Link className="btn btn-sm" href={`/movements/new?kind=ADJUSTMENT&wh=${x.id}`}>Yararsızı sil</Link>
+              <Link className="btn btn-sm" href={`/movements/new?kind=RETURN_TO_SUPPLIER&wh=${x.id}`}>Tədarükçüyə qaytar</Link>
+            </span>
+          ))}
+        </div>
+      )}
       <PageHeader print={["Anbardar", "Anbar müdiri"]}
         viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "qalığı dəyişmək (yalnız mədaxil/məxaric sənədləri ilə)" }}
         title="Anbar qalığı"
         subtitle="Hər material üzrə: harada nə qədər var (ofis və sahə anbarları). Mövcud = fiziki qalıq − rezerv. İşçilərə verilənlər bura daxil deyil — onlar “Sahə anbarları”nda görünür."
         actions={
           <>
+            {params.status === "low" && can(user.role, "mr.create") && <Link className="btn btn-primary" href="/mr/new?low=1">Azalanlar üçün MR yarat</Link>}
             <a className="btn" href={`/api/export/stock?${new URLSearchParams(clean)}`}>Excel</a>
             <a className="btn" href={`/api/export/stock?${new URLSearchParams({ ...clean, format: "csv" })}`}>CSV</a>
           </>

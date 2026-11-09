@@ -45,11 +45,12 @@ const CATEGORIES: [code: string, az: string, en: string, uniform: boolean][] = [
 // MR form Section 7 — route and responsibilities verbatim; system roles allowed to sign each step are configurable.
 const STEPS: [step: number, code: string, label: string, resp: string, cond: "ALWAYS" | "URGENT_OR_PM_THRESHOLD" | "GD_THRESHOLD", roles: UserRole[]][] = [
   [1, "REQUESTER", "Tələb edən", "Ehtiyac, miqdar və RoS tarixi düzgündür", "ALWAYS", ["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER"]],
+  // steps 2–5 are kept for companies that need them but are switched off by default (simple route)
   [2, "DISCIPLINE_LEAD", "Disiplin aparıcı mühəndisi", "Texniki spesifikasiya çertyojlara uyğundur", "ALWAYS", ["PROJECT_MANAGER"]],
   [3, "QAQC_MANAGER", "QA/QC meneceri", "Yoxlama və sertifikat tələbləri kifayətdir", "ALWAYS", ["PROJECT_MANAGER"]],
   [4, "SITE_MANAGER", "Tikinti / sahə meneceri", "Material göstərilən vaxtda və yerdə lazımdır", "ALWAYS", ["PROJECT_MANAGER", "WAREHOUSE_MANAGER"]],
   [5, "COST_CONTROLLER", "Xərc nəzarətçisi", "Büdcə və xərc kodu yoxlanılıb", "ALWAYS", ["PROCUREMENT"]],
-  [6, "PROJECT_MANAGER", "Layihə meneceri", "Ümumi təsdiq; təcili / fövqəladə üçün məcburi", "URGENT_OR_PM_THRESHOLD", ["PROJECT_MANAGER", "DIRECTOR"]],
+  [6, "PROJECT_MANAGER", "Layihə rəhbəri", "Ehtiyac, miqdar və tarix düzgündür", "ALWAYS", ["PROJECT_MANAGER", "DIRECTOR"]],
   [7, "GENERAL_DIRECTOR", "Baş direktor", "Yüksək dəyərli MR-lərin təsdiqi", "GD_THRESHOLD", ["SUPER_ADMIN", "DIRECTOR"]],
   [8, "PROCUREMENT_MANAGER", "Satınalma meneceri", "Tədarük üçün qəbul edildi", "ALWAYS", ["PROCUREMENT"]],
 ];
@@ -62,12 +63,11 @@ async function main() {
     await db.category.upsert({ where: { code }, update: {}, create: { code, nameAz, nameEn, isUniform, sortOrder: i } });
   }
   for (const [step, roleCode, labelAz, responsibility, condition, allowedRoles] of STEPS) {
-    await db.approvalStepConfig.upsert({ where: { step }, update: {}, create: { step, roleCode, labelAz, responsibility, condition, allowedRoles } });
+    await db.approvalStepConfig.upsert({ where: { step }, update: {}, create: { step, roleCode, labelAz, responsibility, condition, allowedRoles, isActive: ![2, 3, 4, 5].includes(step) } });
   }
-  // Warehouses mirror the previous HTML system (office + field store) plus a quarantine store for defective goods.
+  // Office store + quarantine for defective goods. Each project gets its own site warehouse automatically.
   const whs: [string, string, "NORMAL" | "QUARANTINE"][] = [
     ["OFIS", "Ofis anbarı", "NORMAL"],
-    ["SAHE", "Sahə anbarı", "NORMAL"],
     ["KARANTIN", "Karantin (qüsurlu / bloklanmış)", "QUARANTINE"],
   ];
   for (const [code, name, type] of whs) {

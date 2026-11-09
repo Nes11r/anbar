@@ -39,14 +39,14 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
       <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]}
         viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "mədaxil/məxaric sənədi yaratmaq və təsdiqləmək" }}
         title="Mədaxil / Məxaric sənədləri"
-        subtitle="Layihəyə ümumi məxaric və işçiyə PPE təhvili ayrı əməliyyat növləridir — eyni ədəd iki dəfə çıxılmır."
+        subtitle="Layihəyə material həmişə sahə anbarı vasitəsilə gedir: ofisdən sahəyə göndərilir, sahədə işçiyə verilir və ya istifadə (sərf) olunur."
         actions={canEdit && (
           <div className="flex flex-wrap gap-2">
-            <Link className="btn btn-primary" href="/movements/new?kind=ISSUE_PROJECT">+ Layihəyə məxaric</Link>
-            <Link className="btn btn-primary" href="/movements/new?kind=ISSUE_EMPLOYEE">+ İşçiyə PPE</Link>
-            <Link className="btn" href="/movements/new?kind=RETURN_FROM_PROJECT">Layihədən qaytarma</Link>
+            <Link className="btn btn-primary" href="/movements/new?kind=TRANSFER">+ Sahəyə göndər</Link>
+            <Link className="btn btn-primary" href="/movements/new?kind=ISSUE_EMPLOYEE">+ İşçiyə təhvil</Link>
+            <Link className="btn" href="/movements/new?kind=ISSUE_PROJECT">Sahədə istifadə (sərf)</Link>
             <Link className="btn" href="/movements/new?kind=RETURN_FROM_EMPLOYEE">İşçidən geri alma</Link>
-            <Link className="btn" href="/movements/new?kind=TRANSFER">Köçürmə</Link>
+            <Link className="btn" href="/movements/new?kind=RETURN_FROM_PROJECT">İstifadədən qaytarma</Link>
             <Link className="btn" href="/movements/new?kind=ADJUSTMENT">Düzəliş</Link>
             <Link className="btn" href="/movements/new?kind=RETURN_TO_SUPPLIER">Tədarükçüyə qaytarma</Link>
           </div>

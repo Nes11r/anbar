@@ -62,10 +62,12 @@ export async function siteOverview(scopeProjectId?: string | null): Promise<Site
       : Promise.resolve([]),
     db.$queryRaw<{ projectId: string; q: string; workers: bigint }[]>`
       SELECT x."projectId", SUM(x.net)::text AS q, COUNT(DISTINCT x."employeeId") FILTER (WHERE x.net > 0) AS workers FROM (
-        SELECT "projectId"::text AS "projectId", "employeeId", "variantId",
-               SUM(CASE WHEN "entryType" = 'ISSUE' THEN qty ELSE -qty END) AS net
-        FROM stock_ledger WHERE "employeeId" IS NOT NULL AND "entryType" IN ('ISSUE','RETURN_IN') AND "projectId" = ANY(${ids}::uuid[])
-        GROUP BY "projectId", "employeeId", "variantId") x
+        SELECT e."projectId"::text AS "projectId", l."employeeId", l."variantId",
+               SUM(CASE WHEN l."entryType" = 'ISSUE' THEN l.qty ELSE -l.qty END) AS net
+        FROM stock_ledger l JOIN employees e ON e.id = l."employeeId"
+        JOIN material_variants v ON v.id = l."variantId" JOIN materials m ON m.id = v."materialId"
+        WHERE l."entryType" IN ('ISSUE','RETURN_IN') AND NOT m."isConsumable" AND e."projectId" = ANY(${ids}::uuid[])
+        GROUP BY e."projectId", l."employeeId", l."variantId") x
       GROUP BY x."projectId"`,
     db.siteReport.groupBy({ by: ["projectId"], where: { projectId: { in: ids } }, _max: { reportDate: true } }),
   ]);
@@ -111,9 +113,11 @@ export async function siteMaterials(projectId: string): Promise<SiteMaterialRow[
     WITH st AS (
       SELECT "variantId", "onHand", reserved FROM stock_balances WHERE "warehouseId" = ${wh?.id ?? "00000000-0000-0000-0000-000000000000"}::uuid
     ), hw AS (
-      SELECT "variantId", SUM(CASE WHEN "entryType" = 'ISSUE' THEN qty ELSE -qty END) AS q
-      FROM stock_ledger WHERE "projectId" = ${projectId}::uuid AND "employeeId" IS NOT NULL AND "entryType" IN ('ISSUE','RETURN_IN')
-      GROUP BY "variantId"
+      SELECT l."variantId", SUM(CASE WHEN l."entryType" = 'ISSUE' THEN l.qty ELSE -l.qty END) AS q
+      FROM stock_ledger l JOIN employees e ON e.id = l."employeeId"
+      JOIN material_variants v ON v.id = l."variantId" JOIN materials m ON m.id = v."materialId"
+      WHERE e."projectId" = ${projectId}::uuid AND l."entryType" IN ('ISSUE','RETURN_IN') AND NOT m."isConsumable"
+      GROUP BY l."variantId"
     )
     SELECT v.id AS "variantId", v.sku, m."nameAz" AS name, v.size, m."unitCode" AS unit, m."workerGroup"::text AS "workerGroup",
            COALESCE(st."onHand", 0)::text AS instock, COALESCE(st.reserved, 0)::text AS reserved, GREATEST(COALESCE(hw.q, 0), 0)::text AS withworkers
@@ -127,13 +131,13 @@ export async function siteMaterials(projectId: string): Promise<SiteMaterialRow[
   });
 }
 
-/** Who on this site holds what. */
+/** Who on this site holds what (workers currently assigned to the project; consumables are used up, not held). */
 export async function siteWorkerHoldings(projectId: string) {
   return db.$queryRaw<{ employeeId: string; fullName: string; code: string; group: string; sku: string; name: string; size: string; unit: string; qty: string }[]>`
     SELECT e.id AS "employeeId", e."fullName", e.code, e."group"::text AS "group", v.sku, m."nameAz" AS name, v.size, m."unitCode" AS unit,
            SUM(CASE WHEN l."entryType" = 'ISSUE' THEN l.qty ELSE -l.qty END)::text AS qty
     FROM stock_ledger l JOIN employees e ON e.id = l."employeeId" JOIN material_variants v ON v.id = l."variantId" JOIN materials m ON m.id = v."materialId"
-    WHERE l."projectId" = ${projectId}::uuid AND l."employeeId" IS NOT NULL AND l."entryType" IN ('ISSUE','RETURN_IN')
+    WHERE e."projectId" = ${projectId}::uuid AND l."entryType" IN ('ISSUE','RETURN_IN') AND NOT m."isConsumable"
     GROUP BY e.id, e."fullName", e.code, e."group", v.sku, m."nameAz", v.size, m."unitCode"
     HAVING SUM(CASE WHEN l."entryType" = 'ISSUE' THEN l.qty ELSE -l.qty END) > 0
     ORDER BY e."fullName", m."nameAz", v.size`;
