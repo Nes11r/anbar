@@ -190,6 +190,10 @@ test("registration: user picks account type, cannot log in until admin approves"
   await expect(admin.getByText("Təsdiq gözləyən qeydiyyatlar")).toBeVisible();
   await admin.getByRole("link", { name: "Bax və təsdiq et" }).click();
   await expect(admin.getByRole("heading", { name: /Təsdiq: e2e\.client@test\.local/ })).toBeVisible();
+  // a client must be linked to a project
+  await admin.getByRole("button", { name: "Yadda saxla" }).click();
+  await expect(admin.getByText(/Sifarişçi hesabı layihəyə bağlanmalıdır/).first()).toBeVisible();
+  await admin.getByLabel(/Layihə ilə məhdudlaşdır/).selectOption({ label: "E2E01 — E2E test layihəsi" });
   await admin.getByRole("button", { name: "Yadda saxla" }).click();
   await expect(admin.getByText("İstifadəçi yadda saxlanıldı")).toBeVisible();
   await ctx.close();
@@ -198,7 +202,11 @@ test("registration: user picks account type, cannot log in until admin approves"
   await page.getByLabel("E-poçt").fill("e2e.client@test.local");
   await page.getByLabel("Parol").fill("ClientPass123");
   await page.getByRole("button", { name: "Daxil ol" }).click();
-  await expect(page.getByRole("heading", { name: "İdarə paneli" })).toBeVisible();
+  // client lands on their own project's site page and never sees company-wide figures
+  await expect(page.getByRole("heading", { name: /Sahə: E2E01/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "İdarə paneli" })).toHaveCount(0);
+  await page.goto("/stock");
+  await expect(page).toHaveURL(/\/forbidden/);
   await page.goto("/sites");
   await expect(page.getByRole("heading", { name: "Sahə anbarları" })).toBeVisible();
   await expect(page.getByRole("link", { name: "+ Ofisdən sahəyə göndər" })).toHaveCount(0);

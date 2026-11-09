@@ -89,7 +89,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/" className="flex shrink-0 items-center rounded bg-white px-1.5 py-1 lg:hidden" aria-label="İdarə paneli">
               <Image src="/hecotec-logo.png" alt="HECOTEC" width={104} height={29} priority />
             </Link>
-            <GlobalSearch />
+            {can(user.role, "stock.view") ? <GlobalSearch /> : <div className="flex-1" />}
             <div className="ml-auto flex items-center gap-1 sm:gap-2">
               <ThemeControls />
               <Link href="/account" className="hidden text-right leading-tight sm:block">

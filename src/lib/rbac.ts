@@ -5,10 +5,11 @@ import type { UserRole } from "@prisma/client";
  * the menu only hides what the user cannot use anyway.
  */
 export const PERMISSIONS = {
-  "dashboard.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
-  "catalog.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
+  /** Company-wide figures — not for clients (they only see their own project) */
+  "dashboard.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE"],
+  "catalog.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE"],
   "catalog.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
-  "stock.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
+  "stock.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE"],
   "reservation.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   /** See counts / opening balances (read-only for auditors) */
   "inventory.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "AUDITOR"],
@@ -62,8 +63,12 @@ export function isLeadership(role: UserRole | null | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "DIRECTOR";
 }
 
-/** Project the user is limited to, or null = all projects. */
+/** Matches no project: a client account not yet linked to a project sees nothing. */
+export const NO_PROJECT = "00000000-0000-0000-0000-000000000000";
+
+/** Project the user is limited to, or null = all projects. Clients are ALWAYS limited. */
 export function scopeProjectId(u: { role: UserRole; projectId?: string | null }): string | null {
+  if (u.role === "CLIENT") return u.projectId || NO_PROJECT;
   return u.projectId && SCOPABLE_ROLES.includes(u.role) ? u.projectId : null;
 }
 

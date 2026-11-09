@@ -149,6 +149,7 @@ export async function saveUser(actor: Actor, id: string | null, input: z.input<t
       const admins = await tx.user.count({ where: { role: "SUPER_ADMIN", isActive: true, id: { not: id } } });
       if (admins === 0) throw new AppError("Sistemdə ən azı bir aktiv Super Admin qalmalıdır.");
     }
+    if (d.role === "CLIENT" && !d.projectId) throw new AppError("Sifarişçi hesabı layihəyə bağlanmalıdır — “Layihə ilə məhdudlaşdır” sahəsindən layihəni seçin.", "VALIDATION", { projectId: "Layihəni seçin" });
     if (d.role === "EMPLOYEE" && !d.employeeId) throw new AppError("İşçi hesabı işçi kartına bağlanmalıdır (İşçi kartı seçin).", "VALIDATION", { employeeId: "İşçi kartı seçin" });
     if (d.employeeId) {
       const taken = await tx.user.findFirst({ where: { employeeId: d.employeeId, id: id ? { not: id } : undefined } });

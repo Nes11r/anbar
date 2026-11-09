@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requirePage } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getSessionUser, requirePage } from "@/lib/auth";
 import { az } from "@/i18n/az";
 import { fmtDate, fmtQty } from "@/lib/format";
 import { Card, Empty, Kpi, PageHeader } from "@/components/ui";
@@ -9,6 +10,9 @@ export const metadata = { title: "İdarə paneli" };
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
+  const me = await getSessionUser();
+  // a client only ever sees their own project: start on its site page
+  if (me?.role === "CLIENT") redirect(me.projectId ? `/sites/${me.projectId}` : "/sites");
   await requirePage("dashboard.view");
   const [k, low, recent, top] = await Promise.all([dashboardKpis(), lowStock(8), recentMovements(10), topIssuedMaterials(90, 8)]);
   const isEmpty = k.uniqueSkus === 0 && recent.length === 0;

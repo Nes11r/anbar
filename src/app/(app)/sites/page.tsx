@@ -20,7 +20,9 @@ export default async function SitesPage() {
         subtitle="Hər layihənin sahəsində materialın cəmi: sahə anbarında stokda + işçilərin üzərində. Sahədən gələn tələbi bura baxıb yoxlayın."
         actions={can(user.role, "stockdoc.edit") && !scopeProjectId(user) && <Link className="btn btn-primary" href="/movements/new?kind=TRANSFER">+ Ofisdən sahəyə göndər</Link>}
       />
-      {rows.length === 0 ? (
+      {user.role === "CLIENT" && !user.projectId ? (
+        <div className="alert alert-info">Hesabınız hələ layihəyə bağlanmayıb. Administrator layihənizi seçdikdən sonra yalnız öz layihənizin məlumatlarını görəcəksiniz.</div>
+      ) : rows.length === 0 ? (
         <Card><Empty title="Layihə yoxdur" hint="Layihə yaradılanda onun sahə anbarı avtomatik açılır." /></Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

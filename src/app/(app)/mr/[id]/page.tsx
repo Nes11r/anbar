@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DeleteButton } from "@/components/delete-button";
 import { notFound } from "next/navigation";
 import { requirePage } from "@/lib/auth";
-import { can, isLeadership } from "@/lib/rbac";
+import { can, isLeadership, scopeProjectId } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az, MR_LISTS } from "@/i18n/az";
 import { fmtDate, fmtDateTime, fmtMoney, fmtQty, isoDate, sp } from "@/lib/format";
@@ -28,6 +28,9 @@ export default async function MRPage({ params, searchParams }: { params: Promise
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const mr = await db.materialRequest.findUnique({ where: { id }, include: { lines: { orderBy: { lineNo: "asc" }, include: { poLines: { include: { po: { select: { id: true, poNumber: true, status: true } } } } } }, approvals: { orderBy: { step: "asc" } }, orders: { select: { id: true, poNumber: true, status: true } } } });
   if (!mr) notFound();
+  const scope = scopeProjectId(user);
+  if (scope && mr.projectId !== scope) notFound();
+  const isClient = user.role === "CLIENT";
   const [project, wh, history, stages, site] = await Promise.all([
     db.project.findUnique({ where: { id: mr.projectId } }),
     mr.deliveryWarehouseId ? db.warehouse.findUnique({ where: { id: mr.deliveryWarehouseId } }) : null,
@@ -108,7 +111,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
             <dt>Qəbul anbarı</dt><dd>{wh?.name ?? "—"}</dd>
             {mr.supersedesMrNumber && <><dt>Əvəz edir</dt><dd>{mr.supersedesMrNumber}</dd></>}
             {mr.revisionReason && <><dt>Reviziya səbəbi</dt><dd>{mr.revisionReason}</dd></>}
-            <dt>Təxmini dəyər</dt><dd className="font-semibold">{fmtMoney(mr.estimatedValue, mr.currency)}</dd>
+            {!isClient && <><dt>Təxmini dəyər</dt><dd className="font-semibold">{fmtMoney(mr.estimatedValue, mr.currency)}</dd></>}
             {mr.justification && <><dt>Əsaslandırma</dt><dd className="whitespace-pre-wrap">{mr.justification}</dd></>}
             {mr.notes && <><dt>Qeyd</dt><dd className="whitespace-pre-wrap">{mr.notes}</dd></>}
             {refs.length > 0 && <><dt>İstinad sənədləri</dt><dd>{refs.map((r, i) => <div key={i}>{label(MR_LISTS.REF_DOC_TYPE, r.docType)}: {r.docNumber}{r.revision ? ` Rev.${r.revision}` : ""}{r.title ? ` — ${r.title}` : ""}</div>)}</dd></>}
@@ -118,13 +121,13 @@ export default async function MRPage({ params, searchParams }: { params: Promise
         <Card title="3. Material cədvəli" className="xl:col-span-2" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>#</th><th>Kod</th><th>Təsvir</th><th>Ölçü</th><th>Grade</th><th>UoM</th><th className="num">Tələb</th><th className="num">Stokda (bütün anbarlar)</th><th className="num">Sahədə: stok / işçilərdə</th><th className="num">Surplus%</th><th className="num">Net sifariş</th><th className="num">Vahid qiymət</th><th className="num">Sifariş edilib</th><th>Tarix</th></tr></thead>
+              <thead><tr><th>#</th><th>Kod</th><th>Təsvir</th><th>Ölçü</th><th>Grade</th><th>UoM</th><th className="num">Tələb</th><th className="num">Stokda (bütün anbarlar)</th><th className="num">Sahədə: stok / işçilərdə</th><th className="num">Surplus%</th><th className="num">Net sifariş</th>{!isClient && <th className="num">Vahid qiymət</th>}<th className="num">Sifariş edilib</th><th>Tarix</th></tr></thead>
               <tbody>{mr.lines.map((l) => {
                 const ordered = l.poLines.filter((p) => p.po.status !== "CANCELLED" && p.po.status !== "DRAFT").reduce((a, p) => a + Number(p.qtyOrdered), 0);
                 return (
                   <tr key={l.id}>
                     <td>{l.lineNo}</td><td className="text-xs">{l.materialCode ?? "—"}{!l.variantId && <div><Badge tone="warn">kataloqda yox</Badge></div>}</td><td>{l.description}{l.remarks && <div className="text-xs text-muted">{l.remarks}</div>}</td><td>{l.size ?? "—"}</td><td>{l.gradeStandard ?? "—"}</td><td>{l.uomCode}</td>
-                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className={`num ${l.variantId && site.get(l.variantId)?.inStock.gt(0) ? "font-bold text-warn" : ""}`}>{l.variantId ? `${fmtQty(site.get(l.variantId)?.inStock ?? 0)} / ${fmtQty(site.get(l.variantId)?.withWorkers ?? 0)}` : "—"}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td><td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td><td className="num">{fmtQty(ordered)}</td><td>{fmtDate(l.requiredDate)}</td>
+                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className={`num ${l.variantId && site.get(l.variantId)?.inStock.gt(0) ? "font-bold text-warn" : ""}`}>{l.variantId ? `${fmtQty(site.get(l.variantId)?.inStock ?? 0)} / ${fmtQty(site.get(l.variantId)?.withWorkers ?? 0)}` : "—"}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td>{!isClient && <td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td>}<td className="num">{fmtQty(ordered)}</td><td>{fmtDate(l.requiredDate)}</td>
                   </tr>
                 );
               })}</tbody>

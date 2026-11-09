@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { can, type Permission } from "@/lib/rbac";
+import { can, scopeProjectId, type Permission } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
 import { logServerError } from "@/lib/errors";
@@ -149,6 +149,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ report: string 
   if (!r) return NextResponse.json({ error: "Unknown report" }, { status: 404 });
   if (!can(u.role, r.perm)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const p = new URL(req.url).searchParams;
+  // project-limited accounts may export only their own project, never company-wide order lists
+  const scope = scopeProjectId(u);
+  if (scope && (report === "po-status" || (report === "project" && p.get("id") !== scope))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
     const data = await r.run(p);
     const stamp = new Date().toISOString().slice(0, 10);

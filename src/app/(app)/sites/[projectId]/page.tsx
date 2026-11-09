@@ -88,7 +88,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
               {[...byWorker.entries()].map(([id, w]) => (
                 <div key={id} className="rounded-lg border border-line p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <Link href={`/employees/${id}`} className="link">{w.name}</Link>
+                    {can(user.role, "employee.view") ? <Link href={`/employees/${id}`} className="link">{w.name}</Link> : <span className="font-semibold">{w.name}</span>}
                     <span className="text-xs text-muted">{w.code} · {w.group === "ENGINEER" ? "Mühəndis" : "Fəhlə"}</span>
                   </div>
                   <ul className="text-sm">{w.items.map((i, k) => <li key={k} className="flex justify-between gap-2 border-t border-line py-1 first:border-0"><span className="min-w-0 truncate">{i.name}{i.size ? ` · ${i.size}` : ""}</span><span className="font-semibold tabular-nums">{fmtQty(i.qty)} {i.unit}</span></li>)}</ul>
