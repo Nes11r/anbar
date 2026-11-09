@@ -30,7 +30,6 @@ export default async function MRPage({ params, searchParams }: { params: Promise
   if (!mr) notFound();
   const scope = scopeProjectId(user);
   if (scope && mr.projectId !== scope) notFound();
-  const isClient = user.role === "CLIENT";
   const [project, wh, history, stages, site] = await Promise.all([
     db.project.findUnique({ where: { id: mr.projectId } }),
     mr.deliveryWarehouseId ? db.warehouse.findUnique({ where: { id: mr.deliveryWarehouseId } }) : null,
@@ -111,7 +110,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
             <dt>Qəbul anbarı</dt><dd>{wh?.name ?? "—"}</dd>
             {mr.supersedesMrNumber && <><dt>Əvəz edir</dt><dd>{mr.supersedesMrNumber}</dd></>}
             {mr.revisionReason && <><dt>Reviziya səbəbi</dt><dd>{mr.revisionReason}</dd></>}
-            {!isClient && <><dt>Təxmini dəyər</dt><dd className="font-semibold">{fmtMoney(mr.estimatedValue, mr.currency)}</dd></>}
+            <><dt>Təxmini dəyər</dt><dd className="font-semibold">{fmtMoney(mr.estimatedValue, mr.currency)}</dd></>
             {mr.justification && <><dt>Əsaslandırma</dt><dd className="whitespace-pre-wrap">{mr.justification}</dd></>}
             {mr.notes && <><dt>Qeyd</dt><dd className="whitespace-pre-wrap">{mr.notes}</dd></>}
             {refs.length > 0 && <><dt>İstinad sənədləri</dt><dd>{refs.map((r, i) => <div key={i}>{label(MR_LISTS.REF_DOC_TYPE, r.docType)}: {r.docNumber}{r.revision ? ` Rev.${r.revision}` : ""}{r.title ? ` — ${r.title}` : ""}</div>)}</dd></>}
@@ -125,7 +124,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
                 <th>#</th><th>Material</th><th>UoM</th><th className="num">Tələb</th>
                 <th className="num" title="Ofis anbarları + bu layihənin sahə anbarı">Stokda</th>
                 <th className="num" title="Bu layihənin sahəsində: anbarda / işçilərdə">Sahədə<br /><span className="text-[10px] font-normal">stok / işçidə</span></th>
-                <th className="num">Surplus%</th><th className="num">Net sifariş</th>{!isClient && <th className="num">Vahid qiymət</th>}<th className="num">Sifariş edilib</th><th>Tarix</th>
+                <th className="num">Surplus%</th><th className="num">Net sifariş</th><th className="num">Vahid qiymət</th><th className="num">Sifariş edilib</th><th>Tarix</th>
               </tr></thead>
               <tbody>{mr.lines.map((l) => {
                 const ordered = l.poLines.filter((p) => p.po.status !== "CANCELLED" && p.po.status !== "DRAFT").reduce((a, p) => a + Number(p.qtyOrdered), 0);
@@ -140,7 +139,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
                       {l.remarks && <div className="text-xs text-muted">{l.remarks}</div>}
                     </td>
                     <td>{l.uomCode}</td>
-                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className={`num ${l.variantId && site.get(l.variantId)?.inStock.gt(0) ? "font-bold text-warn" : ""}`}>{l.variantId ? `${fmtQty(site.get(l.variantId)?.inStock ?? 0)} / ${fmtQty(site.get(l.variantId)?.withWorkers ?? 0)}` : "—"}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td>{!isClient && <td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td>}<td className="num">{fmtQty(ordered)}</td><td className="whitespace-nowrap">{fmtDate(l.requiredDate)}</td>
+                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className={`num ${l.variantId && site.get(l.variantId)?.inStock.gt(0) ? "font-bold text-warn" : ""}`}>{l.variantId ? `${fmtQty(site.get(l.variantId)?.inStock ?? 0)} / ${fmtQty(site.get(l.variantId)?.withWorkers ?? 0)}` : "—"}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td><td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td><td className="num">{fmtQty(ordered)}</td><td className="whitespace-nowrap">{fmtDate(l.requiredDate)}</td>
                   </tr>
                 );
               })}</tbody>

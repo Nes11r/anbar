@@ -14,15 +14,14 @@ describe("roles", () => {
     expect(isLeadership("DIRECTOR")).toBe(true);
     expect(isLeadership("WAREHOUSE_MANAGER")).toBe(false);
   });
-  it("Worker and client can only look", () => {
-    for (const r of ["EMPLOYEE", "CLIENT"] as const) {
+  it("Worker can only look", () => {
+    for (const r of ["EMPLOYEE"] as const) {
       for (const p of ["po.approve", "stockdoc.post", "grn.post", "mr.create", "inventory.approve", "settings.manage", "catalog.manage"] as Permission[]) expect(can(r, p), `${r} ${p}`).toBe(false);
     }
   });
-  it("client sees only their own project — never company-wide data, even before being linked to a project", () => {
-    for (const p of ["dashboard.view", "stock.view", "catalog.view", "journal.view", "report.view", "grn.view", "stockdoc.view"] as Permission[]) expect(can("CLIENT", p), p).toBe(false);
-    expect(scopeProjectId({ role: "CLIENT", projectId: "p1" })).toBe("p1");
-    expect(scopeProjectId({ role: "CLIENT", projectId: null })).toBe(NO_PROJECT);
+  it("clients no longer use the system: a legacy client account has no permission at all and sees no project", () => {
+    for (const p of Object.keys(PERMISSIONS) as Permission[]) expect(can("CLIENT", p), p).toBe(false);
+    expect(scopeProjectId({ role: "CLIENT", projectId: "p1" })).toBe(NO_PROJECT);
     expect(scopeProjectId({ role: "WAREHOUSE_MANAGER", projectId: null })).toBe(null);
   });
 });

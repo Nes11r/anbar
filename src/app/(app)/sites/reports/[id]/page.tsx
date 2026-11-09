@@ -1,6 +1,6 @@
 import { siteWorkerHoldings } from "@/server/services/sites";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { requirePage } from "@/lib/auth";
 import { can, scopeProjectId } from "@/lib/rbac";
 import { db } from "@/lib/db";
@@ -14,7 +14,6 @@ export const dynamic = "force-dynamic";
 
 export default async function SiteReportView({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("site.view");
-  if (user.role === "CLIENT") redirect("/forbidden");
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const r = await db.siteReport.findUnique({ where: { id }, include: { lines: true, project: true } });

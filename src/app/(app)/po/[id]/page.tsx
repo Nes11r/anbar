@@ -27,7 +27,6 @@ export default async function POPage({ params, searchParams }: { params: Promise
   if (!po) notFound();
   const scope = scopeProjectId(user);
   if (scope && po.mr?.projectId !== scope) notFound();
-  const isClient = user.role === "CLIENT";
   const opts = await variantOptionsByIds(po.lines.map((l) => l.variantId));
   const [history, stages] = await Promise.all([
     db.statusHistory.findMany({ where: { entityType: { in: ["PurchaseOrder", "PurchaseOrderPayment", "PurchaseOrderShipment"] }, entityId: po.id }, orderBy: { id: "asc" } }),
@@ -80,7 +79,7 @@ export default async function POPage({ params, searchParams }: { params: Promise
             <dt>MR</dt><dd>{po.mr ? <Link className="link" href={`/mr/${po.mr.id}`}>{po.mr.mrNumber} Rev.{po.mr.revision}</Link> : "—"}</dd>
             <dt>Sifariş tarixi</dt><dd>{fmtDate(po.orderDate)}</dd>
             <dt>Gözlənilən</dt><dd>{fmtDate(po.expectedDate)}</dd>
-            {!isClient && <><dt>Dəyər</dt><dd className="font-semibold">{fmtMoney(total, po.currency)}</dd></>}
+            <><dt>Dəyər</dt><dd className="font-semibold">{fmtMoney(total, po.currency)}</dd></>
             <dt>Təsdiq</dt><dd>{po.approvedAt ? fmtDateTime(po.approvedAt) : "—"}</dd>
             <dt>Ödəniş</dt><dd>{az.paymentStatus[po.paymentStatus]}{po.paymentRef ? ` · ${po.paymentRef}` : ""}{po.paidAt ? ` · ${fmtDateTime(po.paidAt)}` : ""}</dd>
             <dt>Göndərilmə</dt><dd>{po.shippedAt ? `${fmtDateTime(po.shippedAt)}${po.carrier ? ` · ${po.carrier}` : ""}${po.trackingNo ? ` · №${po.trackingNo}` : ""}` : "—"}</dd>
@@ -92,9 +91,9 @@ export default async function POPage({ params, searchParams }: { params: Promise
         <Card title="Sətirlər və qəbul" className="xl:col-span-2" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>#</th><th>SKU</th><th>Material</th><th>Ölçü</th><th className="num">Sifariş</th><th className="num">Qəbul</th><th className="num">Açıq</th>{!isClient && <><th className="num">Qiymət</th><th className="num">Məbləğ</th></>}</tr></thead>
+              <thead><tr><th>#</th><th>SKU</th><th>Material</th><th>Ölçü</th><th className="num">Sifariş</th><th className="num">Qəbul</th><th className="num">Açıq</th><th className="num">Qiymət</th><th className="num">Məbləğ</th></tr></thead>
               <tbody>{po.lines.map((l) => { const v = opts.get(l.variantId); const open = Math.max(0, Number(l.qtyOrdered) - Number(l.qtyReceived)); return (
-                <tr key={l.id}><td>{l.lineNo}</td><td>{v?.sku}</td><td>{v?.name}</td><td>{v?.size || "—"}</td><td className="num">{fmtQty(l.qtyOrdered)}</td><td className="num">{fmtQty(l.qtyReceived)}</td><td className={`num font-semibold ${open > 0 ? "text-warn" : "text-ok"}`}>{fmtQty(open)}</td>{!isClient && <><td className="num">{l.unitPrice == null ? "—" : fmtQty(l.unitPrice, 2)}</td><td className="num">{l.unitPrice == null ? "—" : fmtQty(Number(l.unitPrice) * Number(l.qtyOrdered), 2)}</td></>}</tr>
+                <tr key={l.id}><td>{l.lineNo}</td><td>{v?.sku}</td><td>{v?.name}</td><td>{v?.size || "—"}</td><td className="num">{fmtQty(l.qtyOrdered)}</td><td className="num">{fmtQty(l.qtyReceived)}</td><td className={`num font-semibold ${open > 0 ? "text-warn" : "text-ok"}`}>{fmtQty(open)}</td><td className="num">{l.unitPrice == null ? "—" : fmtQty(l.unitPrice, 2)}</td><td className="num">{l.unitPrice == null ? "—" : fmtQty(Number(l.unitPrice) * Number(l.qtyOrdered), 2)}</td></tr>
               ); })}</tbody>
             </table>
           </div>

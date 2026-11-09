@@ -5,7 +5,6 @@ import type { UserRole } from "@prisma/client";
  * the menu only hides what the user cannot use anyway.
  */
 export const PERMISSIONS = {
-  /** Company-wide figures — not for clients (they only see their own project) */
   "dashboard.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE"],
   "catalog.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE"],
   "catalog.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
@@ -13,13 +12,13 @@ export const PERMISSIONS = {
   "reservation.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   /** See counts / opening balances (read-only for auditors) */
   "inventory.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "AUDITOR"],
-  /** Full movement journal — staff only (not workers / clients) */
+  /** Full movement journal — staff only (not workers) */
   "journal.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
   "inventory.edit": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   "inventory.approve": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
-  "mr.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
+  "mr.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
   "mr.create": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER"],
-  "po.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
+  "po.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
   "po.manage": ["SUPER_ADMIN", "DIRECTOR", "PROCUREMENT"],
   "po.approve": ["SUPER_ADMIN", "DIRECTOR", "PROCUREMENT"],
   /** Create a PO from a not-yet-approved MR / without MR. Always audited with a reason. */
@@ -34,7 +33,7 @@ export const PERMISSIONS = {
   "document.reverse": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   /** Issue PPE to an employee whose group does not match the material (reason required) */
   "issue.override": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
-  "project.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
+  "project.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
   "project.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "PROJECT_MANAGER"],
   "employee.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER", "AUDITOR"],
   "employee.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
@@ -44,13 +43,13 @@ export const PERMISSIONS = {
   "settings.manage": ["SUPER_ADMIN"],
   "masterdata.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   /** Site (project) warehouses: overview of site stock vs. items with workers */
-  "site.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
+  "site.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
   /** Enter the daily site report (stock / with workers) */
   "site.report": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER"],
   /** Record payment / shipment progress of purchase orders */
   "po.payment": ["SUPER_ADMIN", "DIRECTOR", "PROCUREMENT"],
   /** In-app user guide — everyone */
-  "help.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
+  "help.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE"],
   /** Employee self-service: own items */
   "my.items": ["EMPLOYEE"],
 } as const satisfies Record<string, readonly UserRole[]>;
@@ -58,19 +57,19 @@ export const PERMISSIONS = {
 export type Permission = keyof typeof PERMISSIONS;
 
 /** Roles that can be limited to a single project (User.projectId). */
-export const SCOPABLE_ROLES: readonly UserRole[] = ["STOREKEEPER", "PROJECT_MANAGER", "EMPLOYEE", "CLIENT"];
+export const SCOPABLE_ROLES: readonly UserRole[] = ["STOREKEEPER", "PROJECT_MANAGER", "EMPLOYEE"];
 
 /** Company leadership: may sign any approval step and act on any requester's MR. */
 export function isLeadership(role: UserRole | null | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "DIRECTOR";
 }
 
-/** Matches no project: a client account not yet linked to a project sees nothing. */
+/** Matches no project. Legacy CLIENT accounts (clients no longer log in) are locked to nothing. */
 export const NO_PROJECT = "00000000-0000-0000-0000-000000000000";
 
-/** Project the user is limited to, or null = all projects. Clients are ALWAYS limited. */
+/** Project the user is limited to, or null = all projects. */
 export function scopeProjectId(u: { role: UserRole; projectId?: string | null }): string | null {
-  if (u.role === "CLIENT") return u.projectId || NO_PROJECT;
+  if (u.role === "CLIENT") return NO_PROJECT;
   return u.projectId && SCOPABLE_ROLES.includes(u.role) ? u.projectId : null;
 }
 

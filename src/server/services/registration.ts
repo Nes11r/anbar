@@ -24,7 +24,7 @@ export const registerSchema = z
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 /** Least-privilege placeholder role until the admin decides. */
-const PLACEHOLDER_ROLE = { EMPLOYEE: "EMPLOYEE", COMPANY: "AUDITOR", CLIENT: "CLIENT" } as const;
+const PLACEHOLDER_ROLE = { COMPANY: "AUDITOR" } as const;
 
 export async function registerAccount(input: RegisterInput, hash: (pw: string) => Promise<string>, ip?: string) {
   const d = registerSchema.parse(input);

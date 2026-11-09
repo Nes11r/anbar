@@ -144,7 +144,7 @@ export async function saveMasterRecord(actor: Actor, entity: Entity, id: string 
 export const userSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-poçt düzgün deyil."),
   name: z.string().trim().min(2).max(100),
-  role: z.enum(["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"]),
+  role: z.enum(["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE"], { errorMap: () => ({ message: "Rolu seçin." }) }),
   isActive: z.boolean().default(true),
   password: z.string().optional().nullable(),
   projectId: z.string().uuid().optional().nullable().or(z.literal("").transform(() => null)),
@@ -165,7 +165,6 @@ export async function saveUser(actor: Actor, id: string | null, input: z.input<t
       const admins = await tx.user.count({ where: { role: "SUPER_ADMIN", isActive: true, id: { not: id } } });
       if (admins === 0) throw new AppError("Sistemdə ən azı bir aktiv Super Admin qalmalıdır.");
     }
-    if (d.role === "CLIENT" && !d.projectId) throw new AppError("Sifarişçi hesabı layihəyə bağlanmalıdır — “Layihə ilə məhdudlaşdır” sahəsindən layihəni seçin.", "VALIDATION", { projectId: "Layihəni seçin" });
     if (d.role === "EMPLOYEE" && !d.employeeId) throw new AppError("İşçi hesabı işçi kartına bağlanmalıdır (İşçi kartı seçin).", "VALIDATION", { employeeId: "İşçi kartı seçin" });
     if (d.employeeId) {
       const taken = await tx.user.findFirst({ where: { employeeId: d.employeeId, id: id ? { not: id } : undefined } });

@@ -11,8 +11,6 @@ export const dynamic = "force-dynamic";
 
 export default async function SitePage({ params }: { params: Promise<{ projectId: string }> }) {
   const user = await requirePage("site.view");
-  // clients see what reached their site, not the company's internal records (worker names, daily reports)
-  const isClient = user.role === "CLIENT";
   const { projectId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(projectId)) notFound();
   const scope = scopeProjectId(user);
@@ -46,7 +44,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
           {wh && can(user.role, "stockdoc.edit") && !scope && <Link className="btn" href={`/movements/new?kind=TRANSFER&to=${wh.id}`}>Ofisdən sahəyə göndər</Link>}
           {wh && can(user.role, "stockdoc.edit") && <Link className="btn" href={`/movements/new?kind=TRANSFER&wh=${wh.id}`}>Artığı ofisə qaytar</Link>}
           {wh && can(user.role, "stock.view") && <Link className="btn" href={`/stock?wh=${wh.id}`}>Sahə anbarının qalığı</Link>}
-          {can(user.role, "project.view") && user.role !== "CLIENT" && <Link className="btn" href={`/projects/${p.id}`}>Layihə məlumatı və hesabatı</Link>}
+          {can(user.role, "project.view") && <Link className="btn" href={`/projects/${p.id}`}>Layihə məlumatı və hesabatı</Link>}
         </>}
       />
       <div className="mb-4 grid grid-cols-3 gap-3">
@@ -55,7 +53,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
         <div className="card p-4"><div className="text-xs font-semibold text-muted">Sahə anbarında stokda</div><div className="text-2xl font-bold tabular-nums text-ok">{fmtQty(t.stock)}</div></div>
       </div>
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card title="Material üzrə: cəmi / işçilərdə / stokda" className={isClient ? "xl:col-span-3" : "xl:col-span-2"} pad={false}>
+        <Card title="Material üzrə: cəmi / işçilərdə / stokda" className="xl:col-span-2" pad={false}>
           {mats.length === 0 ? <Empty title="Sahədə material yoxdur" hint="Ofisdən sahəyə göndərin, sonra sahədən işçilərə təhvil verin." /> : (
             <div className="tbl-wrap">
               <table className="tbl">
@@ -74,7 +72,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
             </div>
           )}
         </Card>
-        {!isClient && <Card title="Son gündəlik hesabatlar" pad={false}>
+        <Card title="Son gündəlik hesabatlar" pad={false}>
           {reports.length === 0 ? <p className="p-4 text-sm text-muted">Hələ hesabat daxil edilməyib.</p> : (
             <ul className="divide-y divide-line">{reports.map((r) => {
               const diffs = r.lines.filter((l) => !l.stockQty.eq(l.systemStock) || !l.withWorkersQty.eq(l.systemWithWorkers)).length;
@@ -86,8 +84,8 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
               );
             })}</ul>
           )}
-        </Card>}
-        {!isClient && <Card title="Kimdə nə var (işçilər üzrə)" className="xl:col-span-3" pad={false}>
+        </Card>
+        <Card title="Kimdə nə var (işçilər üzrə)" className="xl:col-span-3" pad={false}>
           {byWorker.size === 0 ? <p className="p-4 text-sm text-muted">Heç bir işçiyə material təhvil verilməyib.</p> : (
             <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
               {[...byWorker.entries()].map(([id, w]) => (
@@ -101,7 +99,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
               ))}
             </div>
           )}
-        </Card>}
+        </Card>
       </div>
     </>
   );

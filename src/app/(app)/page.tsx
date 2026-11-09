@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSessionUser, requirePage } from "@/lib/auth";
+import { requirePage } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
@@ -12,9 +11,6 @@ export const metadata = { title: "İdarə paneli" };
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const me = await getSessionUser();
-  // a client only ever sees their own project: start on its site page
-  if (me?.role === "CLIENT") redirect(me.projectId ? `/sites/${me.projectId}` : "/sites");
   const user = await requirePage("dashboard.view");
   const canMr = can(user.role, "mr.create");
   const pendingMr = await db.materialRequest.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } });

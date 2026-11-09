@@ -8,7 +8,7 @@ export interface Actor {
   name: string;
   role: UserRole;
   ip?: string;
-  /** Set when the user is limited to one project (site storekeeper, project manager, client, worker) */
+  /** Set when the user is limited to one project (site storekeeper, project manager, worker) */
   projectId?: string | null;
 }
 
