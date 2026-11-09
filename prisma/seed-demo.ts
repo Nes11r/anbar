@@ -10,7 +10,7 @@ import type { Actor } from "../src/server/audit";
 import { createMaterial } from "../src/server/services/catalog";
 import { approveCount, createCount } from "../src/server/services/inventory";
 import { createReservation, saveEmployee, saveProject } from "../src/server/services/masterdata";
-import { createGRN, createMR, createPO, decideMR, postGRN, setPOStatus, submitMR } from "../src/server/services/procurement";
+import { createGRN, createMR, createPO, decideMR, postGRN, setPOPayment, setPOShipment, setPOStatus, submitMR } from "../src/server/services/procurement";
 import { createStockDoc, postStockDoc } from "../src/server/services/stockdocs";
 
 const db = new PrismaClient();
@@ -20,23 +20,23 @@ async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("Demo seed production mühitində qadağandır.");
   if (!process.argv.includes("--i-understand-this-is-demo")) throw new Error("Təsdiq bayrağı yoxdur: --i-understand-this-is-demo");
   if (await db.material.count({ where: { code: { startsWith: "DEMO" } } })) {
-    const a = await db.user.findFirst({ where: { role: "SUPER_ADMIN", isActive: true } });
-    if (a) await demoSites({ id: a.id, email: a.email, name: a.name, role: "SUPER_ADMIN" });
-    console.log("Əsas demo məlumatlar artıq var — yalnız çatışmayan sahə ssenarisi yoxlanıldı.");
+    console.log("DEMO məlumatlar artıq var. Yenidən yaratmaq üçün əvvəlcə silin: npm run db:clear:demo -- --i-understand-this-is-demo");
     return;
   }
-  const admin = await db.user.findFirst({ where: { role: "SUPER_ADMIN", isActive: true } });
+  const admin = (await db.user.findFirst({ where: { role: "SUPER_ADMIN", isActive: true, email: process.env.DEMO_ADMIN_EMAIL ?? "admin@hecotec.com" } })) ?? (await db.user.findFirst({ where: { role: "SUPER_ADMIN", isActive: true }, orderBy: { createdAt: "asc" } }));
   if (!admin) throw new Error("Əvvəlcə Super Admin yaradın: npm run admin:create");
   const A: Actor = { id: admin.id, email: admin.email, name: admin.name, role: "SUPER_ADMIN" };
   const cat = async (code: string) => (await db.category.findUniqueOrThrow({ where: { code } })).id;
   const OFIS = await db.warehouse.findUniqueOrThrow({ where: { code: "OFIS" } });
-  const SAHE = await db.warehouse.findUniqueOrThrow({ where: { code: "SAHE" } });
   const KAR = await db.warehouse.findUniqueOrThrow({ where: { code: "KARANTIN" } });
 
   // ── Projects, employees, suppliers ──
   const p1 = await saveProject(A, null, { code: "DEMO-SGC", name: "DEMO — Səngəçal terminalı təmiri", client: "DEMO Neft MMC", location: "Səngəçal", managerName: "DEMO Layihə rəhbəri", startDate: new Date("2026-09-01"), isActive: true });
   const p2 = await saveProject(A, null, { code: "DEMO-BKU", name: "DEMO — Bakı ofis binası (mülki)", client: "DEMO İnşaat", location: "Bakı", startDate: new Date("2026-10-01"), isActive: true });
   const p3 = await saveProject(A, null, { code: "DEMO-SUM", name: "DEMO — Sumqayıt günəş stansiyası", client: "DEMO Enerji", location: "Sumqayıt", isActive: true });
+  // every project gets its own site warehouse automatically
+  const SAHE = await db.warehouse.findUniqueOrThrow({ where: { projectId: p1.id } });
+  const SAHE3 = await db.warehouse.findUniqueOrThrow({ where: { projectId: p3.id } });
 
   const emps = [
     ["DEMO-E01", "DEMO Rəşad Mühəndisov", "ENGINEER", "Mexanika mühəndisi", p1.id],
@@ -91,7 +91,7 @@ async function main() {
 
   // ── Issues to projects ──
   const issueP = async (projectId: string, recipientName: string, ago: number, lines: [string, number][], wh = OFIS.id) => {
-    const d = await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: wh, projectId, recipientName, purpose: "Sahə işləri", docDate: daysAgo(ago), lines: lines.map(([variantId, qty]) => ({ variantId, qty })) });
+    const d = await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: wh, projectId, recipientName, docDate: daysAgo(ago), lines: lines.map(([variantId, qty]) => ({ variantId, qty })) });
     await postStockDoc(A, d.id);
     return d;
   };
@@ -152,11 +152,14 @@ async function main() {
     lines: po1Full.lines.map((l, i) => i === 0 ? { poLineId: l.id, qtyReceived: 60, qtyRejected: 0, qualityStatus: "ACCEPTED" } : i === 1 ? { poLineId: l.id, qtyReceived: Number(l.qtyOrdered), qtyRejected: 1, qualityStatus: "ACCEPTED_WITH_NCR", note: "1 cüt zədəli" } : { poLineId: l.id, qtyReceived: 0, qtyRejected: 0, qualityStatus: "ACCEPTED" }),
   } as never);
   await postGRN(A, g1.id);
+  // Order tracking: paid, the rest is on the way
+  await setPOPayment(A, po1.id, { status: "PAID", ref: "DEMO-ÖDƏNİŞ-001" });
+  await setPOShipment(A, po1.id, { carrier: "DEMO Kargo", trackingNo: "DEMO-TRK-555", shippedAt: daysAgo(1) });
 
   // A second MR waiting for approval (shows the approval queue), urgent
   const mr2 = await createMR(A, {
     projectId: p3.id, discipline: "ELE", requestType: "NEW", priority: "URGENT", justification: "DEMO: kabel çəkilişi qrafikdən geri qalır",
-    dateRaised: daysAgo(1), requiredOnSiteDate: daysAgo(-3), requesterName: "DEMO Samir Fəhlə", currency: "AZN", deliveryWarehouseId: SAHE.id, referenceDocs: [], formData: {},
+    dateRaised: daysAgo(1), requiredOnSiteDate: daysAgo(-3), requesterName: "DEMO Samir Fəhlə", currency: "AZN", deliveryWarehouseId: SAHE3.id, referenceDocs: [], formData: {},
     lines: [{ variantId: v(cable), description: "Kabel NYY 4x16", uomCode: "M", qtyRequired: 300, surplusPct: 5, estUnitPrice: 12.5 }, { description: "DEMO Kabel ucluğu 16 mm² (kataloqda yoxdur)", uomCode: "PCS", qtyRequired: 50, surplusPct: 0, estUnitPrice: 1.2 }],
   } as never);
   await submitMR(A, mr2.id);
@@ -168,10 +171,10 @@ async function main() {
   } as never);
 
   // A draft issue (shows draft → post flow)
-  await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: OFIS.id, projectId: p2.id, recipientName: "DEMO Usta Vüqar", purpose: "Növbəti həftə", docDate: new Date(), lines: [{ variantId: v(helmet), qty: 5 }, { variantId: v(gloves), qty: 20 }] });
+  await createStockDoc(A, { kind: "ISSUE_PROJECT", warehouseId: OFIS.id, projectId: p2.id, recipientName: "DEMO Usta Vüqar", docDate: new Date(), lines: [{ variantId: v(helmet), qty: 5 }, { variantId: v(gloves), qty: 20 }] });
 
   await demoSites(A);
-  console.log("DEMO məlumatlar yaradıldı: 3 layihə, 7 işçi, 2 tədarükçü, 15 material (ölçülərlə), 2 açılış sayımı, layihə/PPE məxaricləri, qaytarmalar, köçürmə, rezerv, MR→PO→qismən GRN, təsdiq gözləyən MR və qaralamalar.");
+  console.log("DEMO məlumatlar yaradıldı: 3 layihə (hər birinin sahə anbarı), 8 işçi, 2 tədarükçü, 15 material (ölçülərlə), 2 açılış sayımı, layihə/PPE məxaricləri, qaytarmalar, köçürmə, rezerv, MR→PO→qismən GRN, təsdiq gözləyən MR və qaralamalar.");
 }
 
 
@@ -182,7 +185,7 @@ async function main() {
 async function demoSites(A: Actor) {
   const sgc = await db.project.findUnique({ where: { code: "DEMO-SGC" }, include: { siteWarehouse: true } });
   if (!sgc?.siteWarehouse) return console.log("DEMO-SGC sahə anbarı yoxdur — sahə ssenarisi atlandı.");
-  if (await db.stockLedgerEntry.count({ where: { warehouseId: sgc.siteWarehouse.id } })) return console.log("Sahə ssenarisi artıq var.");
+  if (await db.stockDocument.count({ where: { recipientName: "DEMO Layihə rəhbəri" } })) return console.log("Sahə ssenarisi artıq var.");
   const office = await db.warehouse.findUniqueOrThrow({ where: { code: "OFIS" } });
   const v = async (code: string, size = "") => (await db.materialVariant.findFirstOrThrow({ where: { material: { code }, size } })).id;
   const site = sgc.siteWarehouse.id;
@@ -190,7 +193,7 @@ async function demoSites(A: Actor) {
   const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000);
   // Project manager collects extra from the office: part goes to workers, the rest stays in site stock
   const t = await createStockDoc(A, {
-    kind: "TRANSFER", warehouseId: office.id, toWarehouseId: site, recipientName: "DEMO Layihə rəhbəri", purpose: "Səngəçal sahəsi üçün PPE", docDate: daysAgo(3),
+    kind: "TRANSFER", warehouseId: office.id, toWarehouseId: site, recipientName: "DEMO Layihə rəhbəri", docDate: daysAgo(3),
     lines: [
       { variantId: await v("DEMO-COV", "50"), qty: 4 }, { variantId: await v("DEMO-COV", "52"), qty: 4 },
       { variantId: await v("DEMO-BOOT-W", "42"), qty: 3 }, { variantId: await v("DEMO-HELM"), qty: 6 },
@@ -205,6 +208,9 @@ async function demoSites(A: Actor) {
     const d = await createStockDoc(A, { kind: "ISSUE_EMPLOYEE", warehouseId: site, employeeId: await emp(code), recipientName: "Özü", docDate: daysAgo(2), lines: await Promise.all(lines.map(async ([m, sz, q]) => ({ variantId: await v(m, sz), qty: q }))) });
     await postStockDoc(A, d.id);
   }
+  // Issue by simply typing a new worker's name (no separate worker registration)
+  const byName = await createStockDoc(A, { kind: "ISSUE_EMPLOYEE", warehouseId: site, employeeName: "DEMO Nihad Qaynaqçı", employeeGroup: "WORKER", docDate: daysAgo(1), lines: [{ variantId: await v("DEMO-COV", "52"), qty: 1 }, { variantId: await v("DEMO-VEST", "XL"), qty: 1 }] });
+  await postStockDoc(A, byName.id);
   // Yesterday's report from the site storekeeper — one glove pack unaccounted for
   const { createSiteReport, siteMaterials } = await import("../src/server/services/sites");
   const mats = await siteMaterials(sgc.id);
