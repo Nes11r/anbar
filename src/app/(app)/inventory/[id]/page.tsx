@@ -15,7 +15,7 @@ import { approveCountAction, cancelCountAction } from "../actions";
 export const dynamic = "force-dynamic";
 
 export default async function CountPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const user = await requirePage("inventory.edit");
+  const user = await requirePage("inventory.view");
   const { id } = await params;
   const s = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
@@ -32,7 +32,7 @@ export default async function CountPage({ params, searchParams }: { params: Prom
   if (draft && sp(s.edit) === "1") {
     return (
       <>
-        <PageHeader title={`Düzəliş: ${c.number}`} crumbs={[{ href: "/inventory", label: "İnventarlaşdırma" }, { href: `/inventory/${c.id}`, label: c.number }, { label: "Düzəliş" }]} />
+        <PageHeader viewOnly={{ role: user.role, perm: "inventory.edit", action: "sayım sənədini dəyişmək" }} title={`Düzəliş: ${c.number}`} crumbs={[{ href: "/inventory", label: "İnventarlaşdırma" }, { href: `/inventory/${c.id}`, label: c.number }, { label: "Düzəliş" }]} />
         <CountForm
           warehouses={whs.map((w) => ({ id: w.id, name: w.name }))}
           id={c.id}
@@ -46,10 +46,11 @@ export default async function CountPage({ params, searchParams }: { params: Prom
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "inventory.edit", action: "sayım sənədini dəyişmək" }}
         title={`Sayım ${c.number}`}
         subtitle={<span className="flex items-center gap-2">{az.countMode[c.mode]} · <DocStatusBadge status={c.status} /></span>}
         crumbs={[{ href: "/inventory", label: "İnventarlaşdırma" }, { label: c.number }]}
-        actions={(draft || c.status === "CANCELLED") && (
+        actions={(draft || c.status === "CANCELLED") && can(user.role, "inventory.edit") && (
           <>
             <DeleteButton type="inventoryCount" id={c.id} label={c.number} />
             {draft && <Link className="btn" href={`/inventory/${c.id}?edit=1`}>Düzəliş</Link>}

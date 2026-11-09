@@ -47,7 +47,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
     };
     return (
       <>
-        <PageHeader title={`Düzəliş: ${mr.mrNumber} Rev.${mr.revision}`} crumbs={[{ href: "/mr", label: "MR" }, { href: `/mr/${mr.id}`, label: mr.mrNumber }, { label: "Düzəliş" }]} />
+        <PageHeader viewOnly={{ role: user.role, perm: "mr.create", action: "MR yaratmaq və dəyişmək" }} title={`Düzəliş: ${mr.mrNumber} Rev.${mr.revision}`} crumbs={[{ href: "/mr", label: "MR" }, { href: `/mr/${mr.id}`, label: mr.mrNumber }, { label: "Düzəliş" }]} />
         <MRForm {...opts} defaults={{ requesterName: mr.requesterName }} id={mr.id} version={mr.version} lockProject
           initial={{ h, lines: mr.lines.map((l) => ({ key: l.id, variant: l.variantId ? vopts.get(l.variantId) ?? null : null, materialCode: l.materialCode ?? "", description: l.description, size: l.size ?? "", gradeStandard: l.gradeStandard ?? "", uomCode: l.uomCode, qtyRequired: String(Number(l.qtyRequired)), surplusPct: String(Number(l.surplusPct)), estUnitPrice: l.estUnitPrice == null ? "" : String(Number(l.estUnitPrice)), requiredDate: isoDate(l.requiredDate), remarks: l.remarks ?? "" })) }} />
       </>
@@ -62,6 +62,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
     <>
       <PrintHeader title="Material Request (MR)" number={`${mr.mrNumber} · Rev. ${mr.revision}`} formNo="Form No. HEC-PRC-FRM-001 · Rev. 00" />
       <PageHeader
+        viewOnly={{ role: user.role, perm: "mr.create", action: "MR yaratmaq və dəyişmək" }}
         title={`${mr.mrNumber} · Rev.${mr.revision}`}
         subtitle={<span className="flex flex-wrap items-center gap-2"><MrStatusBadge status={mr.status} />{az.requestType[mr.requestType]} · {mr.priority === "NORMAL" ? "Normal" : <Badge tone={mr.priority === "EMERGENCY" ? "bad" : "warn"}>{az.priority[mr.priority]}</Badge>}</span>}
         crumbs={[{ href: "/mr", label: "Material tələbləri" }, { label: mr.mrNumber }]}

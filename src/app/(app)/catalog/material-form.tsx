@@ -19,14 +19,14 @@ type Variant = { id?: string | null; size: string; color: string; sku?: string |
 export function MaterialForm({
   categories,
   units,
-  suppliers,
   initial,
   id,
   version,
 }: {
   categories: (Opt & { isUniform: boolean })[];
   units: { code: string; label: string }[];
-  suppliers: Opt[];
+  /** kept for compatibility; supplier is chosen on purchase orders, not on the material card */
+  suppliers?: Opt[];
   initial?: Partial<MaterialInput> & { variants: Variant[] };
   id?: string;
   version?: number;
@@ -117,19 +117,11 @@ export function MaterialForm({
         <label className="label"><span>Orijinal məhsul kodu</span><input className="input" value={f.originalCode ?? ""} onChange={(e) => set("originalCode", e.target.value)} placeholder="məs. 1010-027-440" /></label>
         <label className="label"><span>Marka</span><input className="input" value={f.brand ?? ""} onChange={(e) => set("brand", e.target.value)} /></label>
         <label className="label"><span>Model</span><input className="input" value={f.model ?? ""} onChange={(e) => set("model", e.target.value)} /></label>
-        <label className="label"><span>Altkateqoriya</span><input className="input" value={f.subcategory ?? ""} onChange={(e) => set("subcategory", e.target.value)} /></label>
         <label className="label"><span>Rəng</span><input className="input" value={f.color ?? ""} onChange={(e) => set("color", e.target.value)} /></label>
         <label className="label">
           <span className="req">Ölçü vahidi</span>
           <select className="select" value={f.unitCode ?? "PCS"} onChange={(e) => set("unitCode", e.target.value)}>
             {units.map((u) => <option key={u.code} value={u.code}>{u.label} ({u.code})</option>)}
-          </select>
-        </label>
-        <label className="label">
-          <span>Tədarükçü</span>
-          <select className="select" value={f.supplierId ?? ""} onChange={(e) => set("supplierId", e.target.value || null)}>
-            <option value="">—</option>
-            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </label>
         <label className="label"><span>Minimum ehtiyat (hər variant üçün)</span><input className="input" type="number" min={0} step="any" value={f.minStock ?? 0} onChange={(e) => set("minStock", Number(e.target.value))} /></label>

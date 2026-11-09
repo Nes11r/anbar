@@ -42,7 +42,7 @@ export default async function MaterialPage({ params, searchParams }: { params: P
     const opts = await materialFormOptions();
     return (
       <>
-        <PageHeader title={`Düzəliş: ${m.code}`} crumbs={[{ href: "/catalog", label: "Material kataloqu" }, { href: `/catalog/${m.id}`, label: m.code }, { label: "Düzəliş" }]} />
+        <PageHeader viewOnly={{ role: user.role, perm: "catalog.manage", action: "materialı dəyişmək və arxivləmək" }} title={`Düzəliş: ${m.code}`} crumbs={[{ href: "/catalog", label: "Material kataloqu" }, { href: `/catalog/${m.id}`, label: m.code }, { label: "Düzəliş" }]} />
         <MaterialForm
           {...opts}
           id={m.id}
@@ -60,6 +60,7 @@ export default async function MaterialPage({ params, searchParams }: { params: P
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "catalog.manage", action: "materialı dəyişmək və arxivləmək" }}
         title={`${m.nameAz}`}
         subtitle={<span className="flex flex-wrap items-center gap-2"><span className="font-semibold">{m.code}</span><GroupBadge group={m.workerGroup} />{m.isActive ? <Badge tone="ok">Aktiv</Badge> : <Badge tone="muted">Arxiv</Badge>}</span>}
         crumbs={[{ href: "/catalog", label: "Material kataloqu" }, { label: m.code }]}
@@ -76,14 +77,13 @@ export default async function MaterialPage({ params, searchParams }: { params: P
       <div className="grid gap-4 xl:grid-cols-3">
         <Card title="Əsas kart">
           <dl className="kv">
-            <dt>Kateqoriya</dt><dd>{m.category.nameAz}{m.subcategory ? ` / ${m.subcategory}` : ""}</dd>
+            <dt>Kateqoriya</dt><dd>{m.category.nameAz}</dd>
             <dt>Ad (EN)</dt><dd>{m.nameEn ?? "—"}</dd>
             <dt>Orijinal kod</dt><dd>{m.originalCode ?? "—"}</dd>
             <dt>Marka / model</dt><dd>{[m.brand, m.model].filter(Boolean).join(" · ") || "—"}</dd>
             <dt>Rəng</dt><dd>{m.color ?? "—"}</dd>
             <dt>Ölçü növü</dt><dd>{az.sizeType[m.sizeType]}</dd>
             <dt>Vahid</dt><dd>{m.unit.labelAz} ({m.unit.code})</dd>
-            <dt>Tədarükçü</dt><dd>{m.supplier?.name ?? "—"}</dd>
             <dt>Min. ehtiyat</dt><dd>{fmtQty(m.minStock)}</dd>
             <dt>Təsvir</dt><dd className="whitespace-pre-wrap">{m.description ?? "—"}</dd>
             <dt>Qeyd</dt><dd>{m.notes ?? "—"}</dd>

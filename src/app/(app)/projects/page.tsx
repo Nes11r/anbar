@@ -14,7 +14,7 @@ export default async function ProjectsPage() {
   const rows = (await projectsSummary()).filter((r) => !scope || r.projectId === scope);
   return (
     <>
-      <PageHeader title="Layihələr" subtitle="Hər layihəyə verilən, qaytarılan və xalis material (ledger əsasında)." actions={can(user.role, "project.manage") && <Link href="/projects/new" className="btn btn-primary">+ Yeni layihə</Link>} />
+      <PageHeader viewOnly={{ role: user.role, perm: "project.manage", action: "layihə yaratmaq və dəyişmək" }} title="Layihələr" subtitle="Hər layihəyə verilən, qaytarılan və xalis material (ledger əsasında)." actions={can(user.role, "project.manage") && <Link href="/projects/new" className="btn btn-primary">+ Yeni layihə</Link>} />
       <Card pad={false}>
         {rows.length === 0 ? <Empty title="Layihə yoxdur" action={can(user.role, "project.manage") ? <Link href="/projects/new" className="btn btn-primary">+ Yeni layihə</Link> : undefined} /> : (
           <div className="tbl-wrap">

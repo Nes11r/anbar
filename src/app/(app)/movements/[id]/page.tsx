@@ -42,7 +42,7 @@ export default async function MovementPage({ params, searchParams }: { params: P
     const options = await stockDocOptions(user.role, user);
     return (
       <>
-        <PageHeader title={`Düzəliş: ${d.number}`} crumbs={[{ href: "/movements", label: "Mədaxil / Məxaric" }, { href: `/movements/${d.id}`, label: d.number }, { label: "Düzəliş" }]} />
+        <PageHeader viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "sənədi dəyişmək və təsdiqləmək" }} title={`Düzəliş: ${d.number}`} crumbs={[{ href: "/movements", label: "Mədaxil / Məxaric" }, { href: `/movements/${d.id}`, label: d.number }, { label: "Düzəliş" }]} />
         <StockDocForm
           kind={d.kind}
           options={options}
@@ -62,6 +62,7 @@ export default async function MovementPage({ params, searchParams }: { params: P
     <>
       <PrintHeader title={title} number={d.number} />
       <PageHeader
+        viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "sənədi dəyişmək və təsdiqləmək" }}
         title={`${az.stockDocKind[d.kind]} ${d.number}`}
         subtitle={<span className="flex items-center gap-2"><DocStatusBadge status={d.status} />{original && <>Ləğv edir: <Link className="link" href={`/movements/${original.id}`}>{original.number}</Link></>}{reversal && <>Ləğv sənədi: <Link className="link" href={`/movements/${reversal.id}`}>{reversal.number}</Link></>}</span>}
         crumbs={[{ href: "/movements", label: "Mədaxil / Məxaric" }, { label: d.number }]}

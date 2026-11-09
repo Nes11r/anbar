@@ -10,6 +10,10 @@ export const PERMISSIONS = {
   "catalog.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   "stock.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
   "reservation.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
+  /** See counts / opening balances (read-only for auditors) */
+  "inventory.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "AUDITOR"],
+  /** Full movement journal — staff only (not workers / clients) */
+  "journal.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
   "inventory.edit": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   "inventory.approve": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   "mr.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "CLIENT"],
@@ -61,6 +65,11 @@ export function isLeadership(role: UserRole | null | undefined): boolean {
 /** Project the user is limited to, or null = all projects. */
 export function scopeProjectId(u: { role: UserRole; projectId?: string | null }): string | null {
   return u.projectId && SCOPABLE_ROLES.includes(u.role) ? u.projectId : null;
+}
+
+/** Roles that hold a permission (for "who can change this" notices). */
+export function rolesWith(perm: Permission): UserRole[] {
+  return [...(PERMISSIONS[perm] as readonly UserRole[])];
 }
 
 export function can(role: UserRole | null | undefined, perm: Permission): boolean {

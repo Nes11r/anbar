@@ -25,7 +25,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
     const projects = await db.project.findMany({ orderBy: { code: "asc" } });
     return (
       <>
-        <PageHeader title={`Düzəliş: ${e.fullName}`} crumbs={[{ href: "/employees", label: "İşçilər" }, { href: `/employees/${e.id}`, label: e.fullName }, { label: "Düzəliş" }]} />
+        <PageHeader viewOnly={{ role: user.role, perm: "employee.manage", action: "işçi kartını dəyişmək" }} title={`Düzəliş: ${e.fullName}`} crumbs={[{ href: "/employees", label: "İşçilər" }, { href: `/employees/${e.id}`, label: e.fullName }, { label: "Düzəliş" }]} />
         <EmployeeForm id={e.id} v={e} projects={projects.map((p) => [p.id, `${p.code} — ${p.name}`])} />
       </>
     );
@@ -36,6 +36,7 @@ export default async function EmployeePage({ params, searchParams }: { params: P
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "employee.manage", action: "işçi kartını dəyişmək" }}
         title={e.fullName}
         subtitle={<span className="flex items-center gap-2">{e.code} · {e.position ?? "—"} {e.group === "ENGINEER" ? <Badge tone="brand">Mühəndis</Badge> : <Badge tone="warn">Fəhlə</Badge>}{e.project && <> · <Link className="link" href={`/projects/${e.project.id}`}>{e.project.code}</Link></>}</span>}
         crumbs={[{ href: "/employees", label: "İşçilər" }, { label: e.fullName }]}

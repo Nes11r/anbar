@@ -35,7 +35,7 @@ export default async function POPage({ params, searchParams }: { params: Promise
     const suppliers = await db.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } });
     return (
       <>
-        <PageHeader title={`Düzəliş: ${po.poNumber}`} crumbs={[{ href: "/po", label: "PO" }, { href: `/po/${po.id}`, label: po.poNumber }, { label: "Düzəliş" }]} />
+        <PageHeader viewOnly={{ role: user.role, perm: "po.manage", action: "sifarişi idarə etmək" }} title={`Düzəliş: ${po.poNumber}`} crumbs={[{ href: "/po", label: "PO" }, { href: `/po/${po.id}`, label: po.poNumber }, { label: "Düzəliş" }]} />
         <POForm id={po.id} version={po.version} suppliers={suppliers.map((x) => ({ id: x.id, name: x.name }))} canOverride={can(user.role, "po.override")}
           mr={po.mr ? { id: po.mr.id, label: `${po.mr.mrNumber} Rev.${po.mr.revision}`, approved: ["APPROVED", "IN_SOURCING", "PARTIALLY_ORDERED", "PARTIALLY_DELIVERED", "FULLY_ORDERED"].includes(po.mr.status) } : null}
           initial={{ supplierId: po.supplierId, orderDate: isoDate(po.orderDate), expectedDate: isoDate(po.expectedDate), currency: po.currency, notes: po.notes ?? "", overrideReason: po.overrideReason ?? "",
@@ -50,6 +50,7 @@ export default async function POPage({ params, searchParams }: { params: Promise
     <>
       <PrintHeader title="Purchase Order" number={po.poNumber} />
       <PageHeader
+        viewOnly={{ role: user.role, perm: "po.manage", action: "sifarişi idarə etmək" }}
         title={`PO ${po.poNumber}`}
         subtitle={<span className="flex items-center gap-2"><PoStatusBadge status={po.status} /> {po.supplier.name}</span>}
         crumbs={[{ href: "/po", label: "Satınalma sifarişləri" }, { label: po.poNumber }]}

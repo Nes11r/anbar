@@ -35,7 +35,7 @@ export default async function MRList({ searchParams }: { searchParams: Promise<R
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
   return (
     <>
-      <PageHeader title="Material tələbləri (MR)" subtitle="MR və PO yaradılması qalığı artırmır — stok yalnız təsdiqlənmiş mal qəbulu (GRN) ilə artır." actions={can(user.role, "mr.create") && <Link href="/mr/new" className="btn btn-primary">+ Yeni MR</Link>} />
+      <PageHeader viewOnly={{ role: user.role, perm: "mr.create", action: "material tələbi (MR) yaratmaq" }} title="Material tələbləri (MR)" subtitle="MR və PO yaradılması qalığı artırmır — stok yalnız təsdiqlənmiş mal qəbulu (GRN) ilə artır." actions={can(user.role, "mr.create") && <Link href="/mr/new" className="btn btn-primary">+ Yeni MR</Link>} />
       <Card pad={false}>
         <div className="flex flex-col gap-3 border-b border-line p-3">
           <SearchBox placeholder="MR №, tələb edən" />

@@ -103,6 +103,11 @@ test.describe.serial("critical journey", () => {
     await expect(page.getByRole("heading", { name: /giriş icazəniz yoxdur/ })).toBeVisible();
     await page.goto("/movements");
     await expect(page.getByRole("link", { name: "+ Layihəyə məxaric" })).toHaveCount(0);
+    // view-only sections say who can change them
+    await expect(page.getByText("Bu bölmə sizin üçün yalnız baxış üçündür.")).toBeVisible();
+    await page.goto("/catalog");
+    await expect(page.getByRole("note")).toContainText("Anbar müdiri");
+    await expect(page.getByRole("link", { name: "+ Yeni material" })).toHaveCount(0);
   });
 
   test("mobile: dashboard and stock have no horizontal page overflow", async ({ browser }) => {

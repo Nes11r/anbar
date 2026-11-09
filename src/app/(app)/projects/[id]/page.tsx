@@ -24,7 +24,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   if (sp(s.edit) === "1" && can(user.role, "project.manage")) {
     return (
       <>
-        <PageHeader title={`Düzəliş: ${p.code}`} crumbs={[{ href: "/projects", label: "Layihələr" }, { href: `/projects/${p.id}`, label: p.code }, { label: "Düzəliş" }]} />
+        <PageHeader viewOnly={{ role: user.role, perm: "project.manage", action: "layihəni dəyişmək" }} title={`Düzəliş: ${p.code}`} crumbs={[{ href: "/projects", label: "Layihələr" }, { href: `/projects/${p.id}`, label: p.code }, { label: "Düzəliş" }]} />
         <ProjectForm id={p.id} v={{ ...p, startDate: isoDate(p.startDate), endDate: isoDate(p.endDate) }} />
       </>
     );
@@ -41,6 +41,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "project.manage", action: "layihəni dəyişmək" }}
         title={`${p.code} — ${p.name}`}
         subtitle={<span className="flex items-center gap-2">{p.client ?? ""}{p.location ? ` · ${p.location}` : ""} {p.isActive ? <Badge tone="ok">Aktiv</Badge> : <Badge>Bağlı</Badge>}</span>}
         crumbs={[{ href: "/projects", label: "Layihələr" }, { label: p.code }]}

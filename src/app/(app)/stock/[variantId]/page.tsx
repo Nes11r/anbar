@@ -33,6 +33,7 @@ export default async function VariantPage({ params }: { params: Promise<{ varian
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "qalığı dəyişmək (yalnız mədaxil/məxaric sənədləri ilə)" }}
         title={`${v.sku}`}
         subtitle={<span className="flex flex-wrap items-center gap-2">{v.material.nameAz}{v.size ? ` · ölçü ${v.size}` : ""} <GroupBadge group={v.material.workerGroup} /></span>}
         crumbs={[{ href: "/stock", label: "Anbar qalığı" }, { label: v.sku }]}

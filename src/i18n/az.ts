@@ -8,7 +8,7 @@ export const az = {
     dashboard: "İdarə paneli",
     catalog: "Material kataloqu",
     stock: "Anbar qalığı",
-    inventory: "İlkin inventarlaşdırma",
+    inventory: "Sayım və ilkin qalıq",
     mr: "Material tələbləri (MR)",
     po: "Satınalma sifarişləri (PO)",
     grn: "Mal qəbulu (GRN)",
@@ -74,7 +74,7 @@ export const az = {
   priority: { NORMAL: "Normal", URGENT: "Təcili", EMERGENCY: "Fövqəladə" },
   importType: { CATALOG: "Kataloq", OPENING_BALANCE: "İnventar qalığı (açılış)", HISTORICAL_ISSUES: "Tarixi məxaric", OPEN_ORDERS: "Açıq sifariş", SUMMARY_REPORT: "Hesabat xülasəsi" },
   importStatus: { UPLOADED: "Yüklənib", MAPPED: "Preview", COMMITTED: "Təsdiqlənib", ROLLED_BACK: "Geri qaytarılıb", FAILED: "Xəta" },
-  countMode: { OPENING: "İlkin (açılış)", CYCLE: "Dövri sayım" },
+  countMode: { OPENING: "İlkin qalıq", CYCLE: "Dövri sayım" },
   whType: { NORMAL: "Normal", QUARANTINE: "Karantin" },
   approvalCondition: { ALWAYS: "Həmişə", URGENT_OR_PM_THRESHOLD: "Təcili/fövqəladə və ya PM limitindən yuxarı", GD_THRESHOLD: "Baş direktor limitindən yuxarı" },
 } as const;

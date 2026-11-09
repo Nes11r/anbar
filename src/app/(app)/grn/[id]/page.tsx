@@ -32,6 +32,7 @@ export default async function GRNPage({ params }: { params: Promise<{ id: string
     <>
       <PrintHeader title="Goods Received Note (GRN)" number={g.grnNumber} />
       <PageHeader
+        viewOnly={{ role: user.role, perm: "grn.edit", action: "mal qəbulunu təsdiqləmək" }}
         title={`GRN ${g.grnNumber}`}
         subtitle={<span className="flex items-center gap-2"><DocStatusBadge status={g.status} /> PO <Link className="link" href={`/po/${g.poId}`}>{g.po.poNumber}</Link> · {g.po.supplier.name}</span>}
         crumbs={[{ href: "/grn", label: "Mal qəbulu" }, { label: g.grnNumber }]}

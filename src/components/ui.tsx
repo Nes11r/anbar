@@ -1,9 +1,28 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { az } from "@/i18n/az";
+import type { UserRole } from "@prisma/client";
+import { can, rolesWith, type Permission } from "@/lib/rbac";
 
-export function PageHeader({ title, crumbs = [], actions, subtitle }: { title: string; crumbs?: { href?: string; label: string }[]; actions?: ReactNode; subtitle?: ReactNode }) {
+export interface ViewOnlyProps { role: UserRole; perm: Permission; action: string }
+
+/** Shown to users who may look at a section but not change it — names the roles that can. */
+export function ViewOnlyNotice({ role, perm, action }: ViewOnlyProps) {
+  if (can(role, perm)) return null;
+  const who = rolesWith(perm).filter((r) => r !== "SUPER_ADMIN").map((r) => az.role[r]);
   return (
+    <div className="alert alert-info no-print mb-4 flex items-start gap-2 text-sm" role="note">
+      <span aria-hidden>👁</span>
+      <span>
+        <b>Bu bölmə sizin üçün yalnız baxış üçündür.</b> {action[0].toUpperCase() + action.slice(1)} üçün rol lazımdır: <b>{who.join(", ")}</b> (və Super Admin). Sizin rolunuz: {az.role[role]}.
+      </span>
+    </div>
+  );
+}
+
+export function PageHeader({ title, crumbs = [], actions, subtitle, viewOnly }: { title: string; crumbs?: { href?: string; label: string }[]; actions?: ReactNode; subtitle?: ReactNode; viewOnly?: ViewOnlyProps }) {
+  return (
+    <>
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         {crumbs.length > 0 && (
@@ -24,6 +43,8 @@ export function PageHeader({ title, crumbs = [], actions, subtitle }: { title: s
       </div>
       {actions && <div className="no-print flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
+    {viewOnly && <ViewOnlyNotice {...viewOnly} />}
+    </>
   );
 }
 

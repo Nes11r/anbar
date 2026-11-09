@@ -27,6 +27,7 @@ export default async function SiteReportView({ params }: { params: Promise<{ id:
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "site.report", action: "sahə hesabatı daxil etmək" }}
         title={`Sahə hesabatı — ${r.project.code}, ${fmtDate(r.reportDate)}`}
         subtitle={`Hesabatı verən: ${r.reportedBy} · daxil edilib ${fmtDateTime(r.createdAt)}`}
         crumbs={[{ href: "/sites", label: "Sahə anbarları" }, { href: `/sites/${r.projectId}`, label: r.project.code }, { label: fmtDate(r.reportDate) }]}

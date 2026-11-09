@@ -47,8 +47,8 @@ export function CountForm({
         <fieldset className="label md:col-span-4">
           <legend className="mb-1">Rejim</legend>
           <div className="flex flex-wrap gap-2">
-            <label className={`chip cursor-pointer ${mode === "OPENING" ? "!bg-brand !text-brand-ink" : ""}`}><input type="radio" className="sr-only" checked={mode === "OPENING"} onChange={() => setMode("OPENING")} />İlkin inventarlaşdırma (açılış qalığı)</label>
-            <label className={`chip cursor-pointer ${mode === "CYCLE" ? "!bg-brand !text-brand-ink" : ""}`}><input type="radio" className="sr-only" checked={mode === "CYCLE"} onChange={() => setMode("CYCLE")} />Dövri sayım (fərq düzəlişi)</label>
+            <label className={`chip cursor-pointer ${mode === "OPENING" ? "!bg-brand !text-brand-ink" : ""}`}><input type="radio" className="sr-only" checked={mode === "OPENING"} onChange={() => setMode("OPENING")} />İlkin qalıq (sistemə başlayanda, bir dəfə)</label>
+            <label className={`chip cursor-pointer ${mode === "CYCLE" ? "!bg-brand !text-brand-ink" : ""}`}><input type="radio" className="sr-only" checked={mode === "CYCLE"} onChange={() => setMode("CYCLE")} />Dövri sayım (yoxlama, fərq düzəlişi)</label>
           </div>
           <span className="text-[11px] font-normal text-muted">
             {mode === "OPENING" ? "Yalnız anbarda heç bir hərəkəti olmayan variantlar üçün. Təsdiqdə sayılmış miqdar açılış qalığı kimi yazılır." : "Təsdiq anında sistem qalığı ilə sayılan arasındakı fərq düzəliş (+/−) kimi yazılır."}

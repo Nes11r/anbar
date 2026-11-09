@@ -10,7 +10,7 @@ export const metadata = { title: "Hərəkət jurnalı" };
 export const dynamic = "force-dynamic";
 
 export default async function JournalPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePage("stock.view");
+  await requirePage("journal.view");
   const s = await searchParams;
   const params = { q: sp(s.q), type: sp(s.type), wh: sp(s.wh), project: sp(s.project), from: sp(s.from), to: sp(s.to) };
   const page = Number(sp(s.page)) || 1;

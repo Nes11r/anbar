@@ -28,7 +28,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
   return (
     <>
-      <PageHeader title="İşçilər və PPE" subtitle="Şəxsi məlumatlar minimuma endirilib: ID, ad, kateqoriya, vəzifə, layihə." actions={can(user.role, "employee.manage") && <Link href="/employees/new" className="btn btn-primary">+ Yeni işçi</Link>} />
+      <PageHeader viewOnly={{ role: user.role, perm: "employee.manage", action: "işçi kartlarını idarə etmək" }} title="İşçilər və PPE" subtitle="Şəxsi məlumatlar minimuma endirilib: ID, ad, kateqoriya, vəzifə, layihə." actions={can(user.role, "employee.manage") && <Link href="/employees/new" className="btn btn-primary">+ Yeni işçi</Link>} />
       {hist > 0 && <p className="mb-3 text-xs text-muted">Excel-dən import edilmiş {hist} tarixi təhvil qeydi işçi kartlarında ayrıca (“tarixi”) göstərilir və qalığa təsir etmir.</p>}
       <Card pad={false}>
         <div className="flex flex-col gap-3 border-b border-line p-3">

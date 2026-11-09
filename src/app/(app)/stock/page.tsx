@@ -10,7 +10,7 @@ export const metadata = { title: "Anbar qalığı" };
 export const dynamic = "force-dynamic";
 
 export default async function StockPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requirePage("stock.view");
+  const user = await requirePage("stock.view");
   const s = await searchParams;
   const params = { q: sp(s.q), wh: sp(s.wh), cat: sp(s.cat), group: sp(s.group), size: sp(s.size), status: sp(s.status), pos: sp(s.pos) };
   const page = Number(sp(s.page)) || 1;
@@ -24,8 +24,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "qalığı dəyişmək (yalnız mədaxil/məxaric sənədləri ilə)" }}
         title="Anbar qalığı"
-        subtitle="Qalıq yalnız təsdiqlənmiş jurnal qeydlərindən hesablanır. Mövcud = fiziki qalıq − rezerv."
+        subtitle="Hər material üzrə: harada nə qədər var (ofis və sahə anbarları). Mövcud = fiziki qalıq − rezerv. İşçilərə verilənlər bura daxil deyil — onlar “Sahə anbarları”nda görünür."
         actions={
           <>
             <a className="btn" href={`/api/export/stock?${new URLSearchParams(clean)}`}>Excel</a>
@@ -56,7 +57,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>SKU</th><th>Material</th><th>Ölçü</th><th>Kateqoriya</th><th>Təyinat</th><th className="num">Fiziki</th><th className="num">Rezerv</th><th className="num">Mövcud</th><th className="num">Min.</th><th>Vahid</th><th>Vəziyyət</th></tr></thead>
+              <thead><tr><th>SKU</th><th>Material</th><th>Ölçü</th><th>Kateqoriya</th><th>Təyinat</th><th className="num">Fiziki</th><th className="num">Rezerv</th><th className="num">Mövcud</th><th className="num">Min.</th><th>Vahid</th><th>Harada</th><th>Vəziyyət</th></tr></thead>
               <tbody>
                 {data.rows.map((r) => {
                   const avail = Number(r.onhand) - Number(r.reserved);
@@ -72,6 +73,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
                       <td className="num font-bold"><span>{fmtQty(avail)}<span className="md:hidden"> {r.unit}</span></span></td>
                       <td className="num text-muted mob-hide">{fmtQty(r.min)}</td>
                       <td className="mob-hide">{r.unit}</td>
+                      <td className="text-xs">{r.locations ?? "—"}</td>
                       <td><StockStatus avail={avail} min={Number(r.min)} /></td>
                     </tr>
                   );

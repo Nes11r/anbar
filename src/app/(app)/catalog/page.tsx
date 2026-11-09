@@ -24,6 +24,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "catalog.manage", action: "material əlavə etmək, dəyişmək və arxivləmək" }}
         title="Material kataloqu"
         subtitle="Məhsul ailəsi → ölçü variantları (hər ölçü ayrıca SKU və qalıq)."
         actions={

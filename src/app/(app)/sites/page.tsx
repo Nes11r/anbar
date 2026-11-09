@@ -15,6 +15,7 @@ export default async function SitesPage() {
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "site.report", action: "gündəlik sahə hesabatını daxil etmək" }}
         title="Sahə anbarları"
         subtitle="Hər layihənin sahəsində materialın cəmi: sahə anbarında stokda + işçilərin üzərində. Sahədən gələn tələbi bura baxıb yoxlayın."
         actions={can(user.role, "stockdoc.edit") && !scopeProjectId(user) && <Link className="btn btn-primary" href="/movements/new?kind=TRANSFER">+ Ofisdən sahəyə göndər</Link>}

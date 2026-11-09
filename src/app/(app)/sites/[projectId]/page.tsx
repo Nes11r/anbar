@@ -33,6 +33,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
   return (
     <>
       <PageHeader
+        viewOnly={{ role: user.role, perm: "site.report", action: "gündəlik sahə hesabatını daxil etmək" }}
         title={`Sahə: ${p.code} — ${p.name}`}
         subtitle={wh ? `Sahə anbarı: ${wh.name} (${wh.code})` : "Bu layihənin sahə anbarı yoxdur — layihəni yadda saxlayın, avtomatik yaranacaq."}
         crumbs={[{ href: "/sites", label: "Sahə anbarları" }, { label: p.code }]}

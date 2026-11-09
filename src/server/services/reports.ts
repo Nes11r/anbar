@@ -108,14 +108,16 @@ export async function stockList(f: StockFilter) {
   const base = Prisma.sql`
     FROM material_variants v JOIN materials m ON m.id = v."materialId" JOIN categories c ON c.id = m."categoryId"
     LEFT JOIN stock_balances b ON b."variantId" = v.id ${whCond}
+    LEFT JOIN warehouses w ON w.id = b."warehouseId"
     WHERE ${where}
     GROUP BY v.id, v.sku, v.size, v.color, v."minStock", m.id, m.code, m."nameAz", m."nameEn", m."workerGroup", m."unitCode", m."minStock", m.model, c."nameAz"
     HAVING ${hav}`;
   const [rows, cnt] = await Promise.all([
-    db.$queryRaw<{ variantId: string; materialId: string; sku: string; size: string; color: string; code: string; name: string; nameEn: string | null; model: string | null; workerGroup: string; unit: string; category: string; min: string; onhand: string; reserved: string }[]>`
+    db.$queryRaw<{ variantId: string; materialId: string; sku: string; size: string; color: string; code: string; name: string; nameEn: string | null; model: string | null; workerGroup: string; unit: string; category: string; min: string; onhand: string; reserved: string; locations: string | null }[]>`
       SELECT v.id AS "variantId", m.id AS "materialId", v.sku, v.size, v.color, m.code, m."nameAz" AS name, m."nameEn", m.model, m."workerGroup"::text AS "workerGroup",
              m."unitCode" AS unit, c."nameAz" AS category, COALESCE(v."minStock", m."minStock")::text AS min,
-             COALESCE(SUM(b."onHand"), 0)::text AS onhand, COALESCE(SUM(b.reserved), 0)::text AS reserved
+             COALESCE(SUM(b."onHand"), 0)::text AS onhand, COALESCE(SUM(b.reserved), 0)::text AS reserved,
+             STRING_AGG(REPLACE(w.name, 'Sahə anbarı — ', 'Sahə ') || ': ' || TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM b."onHand"::text)), ' · ' ORDER BY w."projectId" NULLS FIRST, w.code) FILTER (WHERE b."onHand" > 0) AS locations
       ${base}
       ORDER BY m."nameAz", m.code, v.size LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
     db.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*) AS n FROM (SELECT v.id ${base}) x`,
