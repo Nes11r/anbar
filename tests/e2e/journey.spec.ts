@@ -121,7 +121,7 @@ test.describe.serial("critical journey", () => {
     await login(page, "keeper");
     await expect(page.getByRole("navigation", { name: "Mobil naviqasiya" })).toBeVisible();
     await page.getByRole("button", { name: "Sürətli əməliyyatlar" }).click();
-    await expect(page.getByRole("link", { name: "Layihəyə məxaric" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sahədə istifadə" })).toBeVisible();
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Menyunu aç" }).click();
     await expect(page.getByRole("complementary", { name: "Əsas menyu" }).getByRole("link", { name: "Anbar qalığı" })).toBeInViewport();
@@ -219,6 +219,12 @@ test("registration: user picks account type, cannot log in until admin approves"
   await expect(page.getByRole("link", { name: "+ Ofisdən sahəyə göndər" })).toHaveCount(0);
   await page.goto("/mr");
   await expect(page.getByRole("link", { name: "+ Yeni MR" })).toHaveCount(0);
+  // user guide: own role opens first, every role's guide is readable
+  await page.getByRole("link", { name: "İstifadə qaydası" }).first().click();
+  await expect(page.getByText("Sizin rolunuz", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sifarişçi", level: 2 })).toBeVisible();
+  await page.getByRole("link", { name: "Anbardar" }).click();
+  await expect(page.getByRole("heading", { name: "Anbardar", level: 2 })).toBeVisible();
 });
 
 test("site: office → site transfer shows up as site stock; daily report records differences", async ({ page }) => {

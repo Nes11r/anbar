@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { E2E_USERS } from "./global-setup";
 
 /** Visual smoke: every main page renders without the error boundary (screenshots in test-results/screens). */
-const PAGES = ["/", "/catalog", "/stock", "/inventory", "/movements", "/journal", "/mr", "/mr/new", "/po", "/grn", "/projects", "/sites", "/reports", "/import", "/audit", "/settings/warehouses", "/settings/users", "/settings/approval", "/movements/new?kind=ISSUE_EMPLOYEE"];
+const PAGES = ["/", "/catalog", "/stock", "/inventory", "/movements", "/journal", "/mr", "/mr/new", "/po", "/grn", "/projects", "/sites", "/reports", "/import", "/audit", "/settings/warehouses", "/settings/users", "/settings/approval", "/movements/new?kind=ISSUE_EMPLOYEE", "/help", "/help?rol=sifarisci"];
 
 test("all main pages render (light + dark)", async ({ page }) => {
   await page.goto("/login");

@@ -28,6 +28,7 @@ const NAV: { href: string; label: string; perm: Permission; icon: string; group?
   { href: "/import", label: az.nav.import, perm: "import.run", icon: "M12 3v12M7 10l5 5 5-5M4 21h16", group: "Sistem" },
   { href: "/audit", label: az.nav.audit, perm: "audit.view", icon: "M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z", group: "Sistem" },
   { href: "/settings", label: az.nav.settings, perm: "masterdata.manage", icon: "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z", group: "Sistem" },
+  { href: "/help", label: "İstifadə qaydası", perm: "help.view", icon: "M12 22a10 10 0 100-20 10 10 0 000 20zM9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01", group: "Kömək" },
 ];
 
 const ICON = {
@@ -56,9 +57,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(can(user.role, "site.report") ? [{ href: scope ? `/sites/${scope}/report` : "/sites", label: "Sahə hesabatı", icon: ICON.count }] : []),
     ...(can(user.role, "stockdoc.edit") && !scope ? [{ href: "/movements/new?kind=TRANSFER", label: "Sahəyə göndər", icon: ICON.trf }] : []),
     ...(can(user.role, "stockdoc.edit") ? [
-      { href: "/movements/new?kind=ISSUE_PROJECT", label: "Layihəyə məxaric", icon: ICON.out },
-      { href: "/movements/new?kind=ISSUE_EMPLOYEE", label: "İşçiyə PPE", icon: ICON.ppe },
-      { href: "/movements/new?kind=RETURN_FROM_PROJECT", label: "Qaytarma", icon: ICON.ret },
+      { href: "/movements/new?kind=ISSUE_PROJECT", label: "Sahədə istifadə", icon: ICON.out },
+      { href: "/movements/new?kind=ISSUE_EMPLOYEE", label: "İşçiyə təhvil", icon: ICON.ppe },
+      { href: "/movements/new?kind=RETURN_FROM_EMPLOYEE", label: "İşçidən geri al", icon: ICON.ret },
     ] : []),
     ...(can(user.role, "grn.edit") ? [{ href: "/grn", label: "Mal qəbulu", icon: ICON.grn }] : []),
     ...(can(user.role, "inventory.edit") ? [{ href: "/inventory/new", label: "Sayım", icon: ICON.count }] : []),

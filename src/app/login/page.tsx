@@ -18,7 +18,7 @@ export default async function LoginPage() {
         <h1 className="text-lg font-bold">Anbar Sistemi</h1>
         <p className="mb-4 text-sm text-muted">Şirkət, işçi və sifarişçi hesabları eyni girişdən istifadə edir.</p>
         <LoginForm />
-        <p className="mt-4 text-center text-sm text-muted">Hesabınız yoxdur? <Link className="link" href="/register">Hesab yaradın</Link> (işçi, şirkət və ya sifarişçi)</p>
+        <p className="mt-4 text-center text-sm text-muted">Hesabınız yoxdur? <Link className="link" href="/register">Hesab yaradın</Link> (şirkət və ya sifarişçi)</p>
       </div>
       <p className="fixed bottom-3 left-0 right-0 text-center text-xs font-semibold tracking-wide text-[#d9eaee]/80">HECOTEC MMC · Industrial Development Company</p>
     </main>

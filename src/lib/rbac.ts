@@ -49,6 +49,8 @@ export const PERMISSIONS = {
   "site.report": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER"],
   /** Record payment / shipment progress of purchase orders */
   "po.payment": ["SUPER_ADMIN", "DIRECTOR", "PROCUREMENT"],
+  /** In-app user guide — everyone */
+  "help.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"],
   /** Employee self-service: own items */
   "my.items": ["EMPLOYEE"],
 } as const satisfies Record<string, readonly UserRole[]>;
