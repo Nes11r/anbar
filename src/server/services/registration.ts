@@ -9,7 +9,7 @@ import { AppError } from "@/lib/errors";
  */
 export const registerSchema = z
   .object({
-    accountType: z.enum(["EMPLOYEE", "COMPANY", "CLIENT"], { errorMap: () => ({ message: "Hesab növünü seçin." }) }),
+    accountType: z.enum(["COMPANY", "CLIENT"], { errorMap: () => ({ message: "Hesab növünü seçin." }) }),
     name: z.string().trim().min(3, "Ad, soyad məcburidir.").max(100),
     email: z.string().trim().toLowerCase().email("E-poçt düzgün deyil."),
     phone: z.string().trim().max(30).optional().nullable(),

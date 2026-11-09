@@ -3,7 +3,6 @@ import { useActionState, useState } from "react";
 import { registerAction } from "./actions";
 
 const TYPES = [
-  { v: "EMPLOYEE", t: "İşçi", d: "Ümumi anbarı və öz üzərindəki materialları görür" },
   { v: "COMPANY", t: "Şirkət", d: "Rəhbərlik, ofis, anbar, satınalma əməkdaşları" },
   { v: "CLIENT", t: "Sifarişçi", d: "Anbarı və sifarişlərin vəziyyətini görür, təsdiq etmir" },
 ] as const;
@@ -23,7 +22,7 @@ export function RegisterForm() {
     <form action={action} className="flex flex-col gap-3" noValidate>
       <fieldset>
         <legend className="label mb-1"><span className="req">Hesab növü</span></legend>
-        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup">
+        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
           {TYPES.map((x) => (
             <label key={x.v} className={`cursor-pointer rounded-lg border p-3 text-sm ${type === x.v ? "border-brand bg-brand-soft" : "border-line-strong"}`}>
               <input type="radio" name="accountType" value={x.v} className="sr-only" checked={type === x.v} onChange={() => setType(x.v)} />
