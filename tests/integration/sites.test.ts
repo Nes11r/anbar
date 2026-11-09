@@ -163,7 +163,7 @@ describe("Qeydiyyat", () => {
     await registerAccount({ accountType: "COMPANY", name: "Yeni Rəhbər", email: "boss@test.local", password: "Parol12345x", password2: "Parol12345x" }, (p) => bcrypt.hash(p, 4));
     const u = await db.user.findUniqueOrThrow({ where: { email: "boss@test.local" } });
     expect([u.isActive, u.pendingApproval, u.role, u.requestedType]).toEqual([false, true, "AUDITOR", "COMPANY"]);
-    await expect(registerAccount({ accountType: "CLIENT", name: "X Y Z", email: "boss@test.local", password: "Parol12345x", password2: "Parol12345x" }, (p) => bcrypt.hash(p, 4))).rejects.toThrow(/artıq/);
+    await expect(registerAccount({ accountType: "COMPANY", name: "X Y Z", email: "boss@test.local", password: "Parol12345x", password2: "Parol12345x" }, (p) => bcrypt.hash(p, 4))).rejects.toThrow(/artıq/);
     await expect(registerAccount({ accountType: "COMPANY", name: "X Y Z", email: "w@test.local", password: "short", password2: "short" }, (p) => bcrypt.hash(p, 4))).rejects.toThrow();
   });
 });

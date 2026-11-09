@@ -174,55 +174,46 @@ test("delete: unused project is deleted from UI; project with history is refused
   await expect(page.getByRole("alert").filter({ hasText: "Silmək olmaz" })).toBeVisible();
 });
 
-test("registration: user picks account type, cannot log in until admin approves", async ({ page, browser }) => {
+test("registration: company staff sign up, cannot log in until admin approves", async ({ page, browser }) => {
   await page.goto("/register");
-  await page.locator("label", { hasText: "Sifarişçi" }).first().click();
-  await page.getByLabel("Ad, soyad").fill("E2E Sifarişçi");
-  await page.getByLabel("E-poçt").fill("e2e.client@test.local");
-  await page.locator("input[name=password]").fill("ClientPass123");
-  await page.locator("input[name=password2]").fill("ClientPass123");
+  await expect(page.getByText("Sifarişçi")).toHaveCount(0);
+  await page.getByLabel("Ad, soyad").fill("E2E Əməkdaş");
+  await page.getByLabel("E-poçt").fill("e2e.staff@test.local");
+  await page.locator("input[name=password]").fill("StaffPass123");
+  await page.locator("input[name=password2]").fill("StaffPass123");
   await page.getByRole("button", { name: "Qeydiyyat sorğusu göndər" }).click();
   await expect(page.getByText("Sorğunuz qəbul edildi")).toBeVisible();
   // pending → login refused
   await page.goto("/login");
-  await page.getByLabel("E-poçt").fill("e2e.client@test.local");
-  await page.getByLabel("Parol").fill("ClientPass123");
+  await page.getByLabel("E-poçt").fill("e2e.staff@test.local");
+  await page.getByLabel("Parol").fill("StaffPass123");
   await page.getByRole("button", { name: "Daxil ol" }).click();
   await expect(page.getByText("təsdiqini gözləyir")).toBeVisible();
-  // admin approves
+  // admin approves as a read-only auditor; client role is not offered
   const ctx = await browser.newContext();
   const admin = await ctx.newPage();
   await login(admin, "admin");
   await admin.goto("/settings/users");
   await expect(admin.getByText("Təsdiq gözləyən qeydiyyatlar")).toBeVisible();
   await admin.getByRole("link", { name: "Bax və təsdiq et" }).click();
-  await expect(admin.getByRole("heading", { name: /Təsdiq: e2e\.client@test\.local/ })).toBeVisible();
-  // a client must be linked to a project
-  await admin.getByRole("button", { name: "Yadda saxla" }).click();
-  await expect(admin.getByText(/Sifarişçi hesabı layihəyə bağlanmalıdır/).first()).toBeVisible();
-  await admin.getByLabel(/Layihə ilə məhdudlaşdır/).selectOption({ label: "E2E01 — E2E test layihəsi" });
+  await expect(admin.getByRole("heading", { name: /Təsdiq: e2e\.staff@test\.local/ })).toBeVisible();
+  await expect(admin.locator("select[name=role] option", { hasText: "Sifarişçi" })).toHaveCount(0);
+  await admin.locator("select[name=role]").selectOption("AUDITOR");
   await admin.getByRole("button", { name: "Yadda saxla" }).click();
   await expect(admin.getByText("İstifadəçi yadda saxlanıldı")).toBeVisible();
   await ctx.close();
-  // now login works; client is read-only (no approve/create buttons, no settings)
+  // now login works; auditor is read-only
   await page.goto("/login");
-  await page.getByLabel("E-poçt").fill("e2e.client@test.local");
-  await page.getByLabel("Parol").fill("ClientPass123");
+  await page.getByLabel("E-poçt").fill("e2e.staff@test.local");
+  await page.getByLabel("Parol").fill("StaffPass123");
   await page.getByRole("button", { name: "Daxil ol" }).click();
-  // client lands on their own project's site page and never sees company-wide figures
-  await expect(page.getByRole("heading", { name: /Sahə: E2E01/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "İdarə paneli" })).toHaveCount(0);
-  await page.goto("/stock");
-  await expect(page).toHaveURL(/\/forbidden/);
-  await page.goto("/sites");
-  await expect(page.getByRole("heading", { name: "Layihələr və sahələr" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "+ Ofisdən sahəyə göndər" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "İdarə paneli" }).first()).toBeVisible();
   await page.goto("/mr");
   await expect(page.getByRole("link", { name: "+ Yeni MR" })).toHaveCount(0);
   // user guide: own role opens first, every role's guide is readable
   await page.getByRole("link", { name: "İstifadə qaydası" }).first().click();
   await expect(page.getByText("Sizin rolunuz", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Sifarişçi", level: 2 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sifarişçi" })).toHaveCount(0);
   await page.getByRole("link", { name: "Anbardar" }).click();
   await expect(page.getByRole("heading", { name: "Anbardar", level: 2 })).toBeVisible();
 });

@@ -36,7 +36,7 @@
 - **Səhifə səviyyəli skeleton (`loading.tsx`) çıxarılıb.** Next.js 15.5 production rejimində layout səviyyəsindəki `loading.tsx` böyük (hissə-hissə gələn) cavablarda client-side keçidi ilişdirirdi: məs. Parametrlər → "MR təsdiq marşrutu", Anbar qalığı filtrləri. Sorğular 100 ms-dən tez cavab verdiyi üçün skeleton praktiki olaraq görünmürdü. Regressiya testi: `tests/e2e/journey.spec.ts` ("client-side tab/filter navigation never hangs"). Gələcəkdə skeleton lazım olarsa, yalnız ayrı-ayrı komponentlər səviyyəsində `<Suspense>` ilə əlavə edilməli və bu test işlədilməlidir.
 
 ## 2026-11-08 əlavələri üçün qəbul edilmiş standart qərarlar (dəyişdirilə bilər)
-- **Sifarişçi** = layihənin müştərisi: anbarı, layihələri, sahələri və sifarişlərin vəziyyətini görür, heç nəyi təsdiq etmir.
+- **Sifarişçi** = layihənin müştərisi; sistemə girişi yoxdur, yalnız layihə kartında adı yazılır.
 - **Qeydiyyat**: istifadəçi növü özü seçir, hesab admin təsdiqinə qədər aktiv deyil; “Şirkət” sorğusu müvəqqəti olaraq ən aşağı (Oxucu) rolla yaranır, admin dəqiq rolu seçir.
 - **Sahə anbarı**: hər layihəyə bir; köhnə ümumi “Sahə anbarı” (SAHE) saxlanılıb — orada qalıq yoxdursa Parametrlər → Anbarlar-dan silinə və ya deaktiv edilə bilər.
 - **Gündəlik hesabat**: material üzrə cəmlər (stokda / işçilərdə); fərdi işçi siyahısı sistemdə hərəkətlərdən avtomatik qurulur.

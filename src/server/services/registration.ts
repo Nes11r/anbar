@@ -3,13 +3,13 @@ import { withTx } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 
 /**
- * Self-registration. The user picks an account type (worker / company / client); the account is created
+ * Self-registration (company staff only; clients are just a name on the project). The account is created
  * INACTIVE and pending until an administrator approves it and assigns the exact role and project.
  * Nobody can grant themselves rights by registering.
  */
 export const registerSchema = z
   .object({
-    accountType: z.enum(["COMPANY", "CLIENT"], { errorMap: () => ({ message: "Hesab növünü seçin." }) }),
+    accountType: z.enum(["COMPANY"]).default("COMPANY"),
     name: z.string().trim().min(3, "Ad, soyad məcburidir.").max(100),
     email: z.string().trim().toLowerCase().email("E-poçt düzgün deyil."),
     phone: z.string().trim().max(30).optional().nullable(),

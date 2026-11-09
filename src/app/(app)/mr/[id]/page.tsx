@@ -118,23 +118,37 @@ export default async function MRPage({ params, searchParams }: { params: Promise
             {mr.orders.length > 0 && <><dt>PO-lar</dt><dd className="flex flex-wrap gap-2">{mr.orders.map((o) => <Link key={o.id} className="link" href={`/po/${o.id}`}>{o.poNumber} ({az.poStatus[o.status]})</Link>)}</dd></>}
           </dl>
         </Card>
-        <Card title="3. Material cədvəli" className="xl:col-span-2" pad={false}>
+        <Card title="3. Material cədvəli" className="order-first xl:col-span-3" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>#</th><th>Kod</th><th>Təsvir</th><th>Ölçü</th><th>Grade</th><th>UoM</th><th className="num">Tələb</th><th className="num">Stokda (ofis + öz sahəsi)</th><th className="num">Sahədə: stok / işçilərdə</th><th className="num">Surplus%</th><th className="num">Net sifariş</th>{!isClient && <th className="num">Vahid qiymət</th>}<th className="num">Sifariş edilib</th><th>Tarix</th></tr></thead>
+              <thead><tr>
+                <th>#</th><th>Material</th><th>UoM</th><th className="num">Tələb</th>
+                <th className="num" title="Ofis anbarları + bu layihənin sahə anbarı">Stokda</th>
+                <th className="num" title="Bu layihənin sahəsində: anbarda / işçilərdə">Sahədə<br /><span className="text-[10px] font-normal">stok / işçidə</span></th>
+                <th className="num">Surplus%</th><th className="num">Net sifariş</th>{!isClient && <th className="num">Vahid qiymət</th>}<th className="num">Sifariş edilib</th><th>Tarix</th>
+              </tr></thead>
               <tbody>{mr.lines.map((l) => {
                 const ordered = l.poLines.filter((p) => p.po.status !== "CANCELLED" && p.po.status !== "DRAFT").reduce((a, p) => a + Number(p.qtyOrdered), 0);
+                const sub = [l.materialCode, l.size, l.gradeStandard].filter(Boolean).join(" · ");
                 return (
                   <tr key={l.id}>
-                    <td>{l.lineNo}</td><td className="text-xs">{l.materialCode ?? "—"}{!l.variantId && <div><Badge tone="warn">kataloqda yox</Badge></div>}</td><td>{l.description}{l.remarks && <div className="text-xs text-muted">{l.remarks}</div>}</td><td>{l.size ?? "—"}</td><td>{l.gradeStandard ?? "—"}</td><td>{l.uomCode}</td>
-                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className={`num ${l.variantId && site.get(l.variantId)?.inStock.gt(0) ? "font-bold text-warn" : ""}`}>{l.variantId ? `${fmtQty(site.get(l.variantId)?.inStock ?? 0)} / ${fmtQty(site.get(l.variantId)?.withWorkers ?? 0)}` : "—"}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td>{!isClient && <td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td>}<td className="num">{fmtQty(ordered)}</td><td>{fmtDate(l.requiredDate)}</td>
+                    <td>{l.lineNo}</td>
+                    <td className="min-w-[14rem]">
+                      <div className="font-medium">{l.description}</div>
+                      {sub && <div className="text-xs text-muted">{sub}</div>}
+                      {!l.variantId && <Badge tone="warn">kataloqda yox</Badge>}
+                      {l.remarks && <div className="text-xs text-muted">{l.remarks}</div>}
+                    </td>
+                    <td>{l.uomCode}</td>
+                    <td className="num">{fmtQty(l.qtyRequired)}</td><td className="num">{fmtQty(l.qtyInStock)}</td><td className={`num ${l.variantId && site.get(l.variantId)?.inStock.gt(0) ? "font-bold text-warn" : ""}`}>{l.variantId ? `${fmtQty(site.get(l.variantId)?.inStock ?? 0)} / ${fmtQty(site.get(l.variantId)?.withWorkers ?? 0)}` : "—"}</td><td className="num">{fmtQty(l.surplusPct)}</td><td className="num font-bold">{fmtQty(l.netQtyToOrder)}</td>{!isClient && <td className="num">{l.estUnitPrice == null ? "—" : fmtQty(l.estUnitPrice, 2)}</td>}<td className="num">{fmtQty(ordered)}</td><td className="whitespace-nowrap">{fmtDate(l.requiredDate)}</td>
                   </tr>
                 );
               })}</tbody>
             </table>
           </div>
         </Card>
-        <Card title="7. Təsdiq marşrutu" className="xl:col-span-2" pad={false}>
+        <div className="flex flex-col gap-4 xl:col-span-2">
+        <Card title="7. Təsdiq marşrutu" pad={false}>
           {mr.approvals.length === 0 ? <p className="p-4 text-sm text-muted">MR hələ təsdiqə göndərilməyib.</p> : (
             <table className="tbl">
               <thead><tr><th>Mərhələ</th><th>Rol</th><th>Marşrut</th><th>Ad</th><th>Tarix</th><th>Qərar</th><th>Şərh</th></tr></thead>
@@ -152,6 +166,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
             <li key={String(h.id)} className="px-4 py-2"><span className="font-semibold">{az.mrStatus[h.toStatus as keyof typeof az.mrStatus] ?? h.toStatus}</span><span className="block text-xs text-muted">{fmtDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</span></li>
           ))}</ul>
         </Card>
+        </div>
       </div>
     </>
   );

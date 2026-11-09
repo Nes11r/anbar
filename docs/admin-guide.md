@@ -51,9 +51,8 @@ Demo məlumatlar yalnız development-də, `npm run db:seed:demo -- --i-understan
 3. Hesabat qalığı avtomatik dəyişmir. **Stok fərqi** varsa hesabat səhifəsində “Stok fərqini sayım sənədinə çevir” → anbar müdiri sayımı təsdiqləyir. **İşçilərdəki fərq** qeyd olunmamış təhvil/qaytarma deməkdir — həmin sənədi daxil edin.
 
 ## Hesab növləri və qeydiyyat
-- Giriş səhifəsində “**Hesab yaradın**”: istifadəçi **İşçi / Şirkət / Sifarişçi** seçir. Hesab **admin təsdiq edənə qədər aktiv olmur**.
-- *Parametrlər → İstifadəçilər → Təsdiq gözləyən qeydiyyatlar → Bax və təsdiq et*: rolu seçin (Şirkət rəhbəri üçün “Rəhbər / Direktor”), lazım olsa **layihə ilə məhdudlaşdırın** (sahə anbardarı, layihə rəhbəri, sifarişçi, işçi), işçi üçün **işçi kartını** bağlayın. “Rədd et” sorğunu silir.
-- **İşçi**: ümumi anbarı və “Mənim materiallarım”ı görür. **Sifarişçi**: anbarı, layihələri, sahələri və sifarişlərin vəziyyətini görür. Hər ikisi heç nəyi təsdiq və ya dəyişə bilmir.
+- Giriş səhifəsində “**Hesab yaradın**”: yalnız şirkət əməkdaşları qeydiyyatdan keçir (sifarişçinin və işçilərin girişi yoxdur; sifarişçi layihə kartında ad kimi yazılır). Hesab **admin təsdiq edənə qədər aktiv olmur**.
+- *Parametrlər → İstifadəçilər → Təsdiq gözləyən qeydiyyatlar → Bax və təsdiq et*: rolu seçin (Şirkət rəhbəri üçün “Rəhbər / Direktor”), lazım olsa **layihə ilə məhdudlaşdırın** (sahə anbardarı, layihə rəhbəri). “Rədd et” sorğunu silir.
 - Layihə ilə məhdudlaşdırılmış anbardar yalnız öz sahə anbarından öz layihəsinin işçilərinə təhvil verə, qaytarma və sayım apara bilər.
 
 ## Sifarişin izlənməsi

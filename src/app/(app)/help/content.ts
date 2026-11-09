@@ -55,7 +55,7 @@ export const COMMON: Guide = {
       title: "Hesab yaratmaq (qeydiyyat)",
       steps: [
         "Giriş səhifəsində “Hesab yaradın” linkinə basın.",
-        "Hesab növünü seçin: Şirkət (rəhbərlik, ofis, anbar, satınalma əməkdaşları) və ya Sifarişçi.",
+        "Qeydiyyat yalnız şirkət əməkdaşları üçündür (rəhbərlik, ofis, anbar, satınalma). Sifarişçinin girişi yoxdur — onun adı layihə kartında yazılır.",
         "Ad, e-poçt və parolu yazıb “Qeydiyyat sorğusu göndər” basın.",
         "Administrator sorğunuzu təsdiq edib rolunuzu təyin edəndən sonra daxil ola bilərsiniz.",
       ],
@@ -162,10 +162,9 @@ export const GUIDES: Guide[] = [
         steps: [
           "“Parametrlər” → “İstifadəçilər və rollar”. Yuxarıda “Təsdiq gözləyən qeydiyyatlar” siyahısı var.",
           "“Bax və təsdiq et” basın.",
-          "Rolu seçin. Sahə anbardarı, layihə rəhbəri və sifarişçi üçün “Layihə ilə məhdudlaşdır” sahəsində layihəni seçin.",
+          "Rolu seçin. Sahə anbardarı və layihə rəhbəri üçün “Layihə ilə məhdudlaşdır” sahəsində layihəni seçin.",
           "“Yadda saxla” — hesab aktivləşir. Lazım deyilsə “Rədd et”.",
         ],
-        note: "Sifarişçi hesabı layihə seçilmədən təsdiq olunmur — sifarişçi yalnız öz layihəsini görür.",
       },
       {
         title: "İşçiyə özünüz hesab açmaq",
@@ -180,7 +179,6 @@ export const GUIDES: Guide[] = [
           "Satınalma — MR-ın son təsdiqi, sifarişlər (PO), ödəniş və yolda olma.",
           "Layihə rəhbəri — MR yazır və təsdiq edir, sahəyə baxır, gündəlik hesabat verir.",
           "Oxucu / Auditor — hər şeyə baxır, heç nəyi dəyişmir.",
-          "Sifarişçi — yalnız öz layihəsinin sahəsini və sifarişlərini görür, qiymətləri görmür.",
         ],
       },
       {
@@ -440,28 +438,6 @@ export const GUIDES: Guide[] = [
       },
     ],
     cannot: ["Heç bir sənəd yaratmaq, təsdiqləmək və ya dəyişmək."],
-  },
-  {
-    id: "sifarisci",
-    title: "Sifarişçi",
-    roles: ["CLIENT"],
-    who: "Müştəri şirkət. Yalnız öz layihəsini görür: sahəyə nə gəlib, sifarişlər hansı mərhələdədir.",
-    menu: ["Layihələr və sahələr (yalnız sizin layihə)", "Material tələbləri (MR)", "Satınalma sifarişləri (PO)"],
-    tasks: [
-      {
-        title: "Layihəmdə nə var",
-        steps: ["Daxil olan kimi layihənizin sahə səhifəsi açılır.", "Material üzrə: sahədə cəmi, stokda və işdə olan."],
-      },
-      {
-        title: "Sifariş hansı mərhələdədir",
-        steps: [
-          "“Material tələbləri (MR)” → tələbi açın: təsdiq → sifariş → ödəniş → yolda → anbarda.",
-          "“Satınalma sifarişləri (PO)” → sifarişi açın: tədarükçü, gözlənilən tarix, nə qədəri qəbul olunub.",
-        ],
-      },
-    ],
-    cannot: ["Heç nəyi təsdiq və ya dəyişmək.", "Başqa layihələri, şirkətin ümumi anbarını, qiymətləri və daxili hesabatları görmək."],
-    tips: ["Hesabınız hələ layihəyə bağlanmayıbsa, heç bir məlumat görünmür — administratora müraciət edin."],
   },
 ];
 
