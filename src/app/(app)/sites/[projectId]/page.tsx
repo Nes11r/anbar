@@ -32,7 +32,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
   const wh = p.siteWarehouse;
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Sahə anbardarı", "Layihə rəhbəri", "Anbar müdiri"]}
         viewOnly={{ role: user.role, perm: "site.report", action: "gündəlik sahə hesabatını daxil etmək" }}
         title={`Sahə: ${p.code} — ${p.name}`}
         subtitle={wh ? `Sahə anbarı: ${wh.name} (${wh.code})` : "Bu layihənin sahə anbarı yoxdur — layihəni yadda saxlayın, avtomatik yaranacaq."}

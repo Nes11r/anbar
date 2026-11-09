@@ -23,7 +23,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
   const canManage = can(user.role, "catalog.manage");
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Tərtib etdi", "Yoxladı"]}
         viewOnly={{ role: user.role, perm: "catalog.manage", action: "material əlavə etmək, dəyişmək və arxivləmək" }}
         title="Material kataloqu"
         subtitle="Məhsul ailəsi → ölçü variantları (hər ölçü ayrıca SKU və qalıq)."

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { az } from "@/i18n/az";
 import type { UserRole } from "@prisma/client";
 import { can, rolesWith, type Permission } from "@/lib/rbac";
+import { PrintButton, PrintHeader } from "@/components/print";
+import { PrintTail } from "@/components/client/print-tail";
 
 export interface ViewOnlyProps { role: UserRole; perm: Permission; action: string }
 
@@ -20,9 +22,16 @@ export function ViewOnlyNotice({ role, perm, action }: ViewOnlyProps) {
   );
 }
 
-export function PageHeader({ title, crumbs = [], actions, subtitle, viewOnly }: { title: string; crumbs?: { href?: string; label: string }[]; actions?: ReactNode; subtitle?: ReactNode; viewOnly?: ViewOnlyProps }) {
+/**
+ * `print` = signature lines for the printed / PDF version (e.g. ["Anbardar", "Anbar müdiri"]).
+ * When given, the page gets a "Çap / PDF" button, a company header and signature lines on paper.
+ */
+export function PageHeader({ title, crumbs = [], actions, subtitle, viewOnly, print }: { title: string; crumbs?: { href?: string; label: string }[]; actions?: ReactNode; subtitle?: ReactNode; viewOnly?: ViewOnlyProps; print?: string[] }) {
+  if (print) actions = <>{actions}<PrintButton /></>;
   return (
     <>
+    {print && <PrintHeader title={title} number={`Tarix: ${new Date().toLocaleDateString("az-AZ", { timeZone: "Asia/Baku" })}`} />}
+    {print && <PrintTail roles={print} />}
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         {crumbs.length > 0 && (

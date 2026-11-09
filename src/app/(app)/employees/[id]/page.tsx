@@ -24,7 +24,7 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
   const opts = await variantOptionsByIds(heldIds);
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Təhvil verən (anbardar)", "Təhvil alan (işçi)"]}
         title={e.fullName}
         subtitle={<span className="flex items-center gap-2">{e.group === "ENGINEER" ? <Badge tone="brand">Mühəndis</Badge> : <Badge tone="warn">Fəhlə</Badge>}{e.project && <> · <Link className="link" href={`/projects/${e.project.id}`}>{e.project.code}</Link></>}</span>}
         crumbs={e.project ? [{ href: "/sites", label: "Sahə anbarları" }, { href: `/sites/${e.project.id}`, label: e.project.code }, { label: e.fullName }] : [{ href: "/sites", label: "Sahə anbarları" }, { label: e.fullName }]}

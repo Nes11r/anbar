@@ -45,7 +45,7 @@ export default async function CountPage({ params, searchParams }: { params: Prom
 
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Sayımı aparan", "Anbar müdiri", "Təsdiq edən"]}
         viewOnly={{ role: user.role, perm: "inventory.edit", action: "sayım sənədini dəyişmək" }}
         title={`Sayım ${c.number}`}
         subtitle={<span className="flex items-center gap-2">{az.countMode[c.mode]} · <DocStatusBadge status={c.status} /></span>}

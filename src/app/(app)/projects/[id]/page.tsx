@@ -40,7 +40,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const exportQs = new URLSearchParams({ id, ...(sp(s.from) ? { from: sp(s.from) } : {}), ...(sp(s.to) ? { to: sp(s.to) } : {}) });
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Layihə rəhbəri", "Anbar müdiri"]}
         viewOnly={{ role: user.role, perm: "project.manage", action: "layihəni dəyişmək" }}
         title={`${p.code} — ${p.name}`}
         subtitle={<span className="flex items-center gap-2">{p.client ?? ""}{p.location ? ` · ${p.location}` : ""} {p.isActive ? <Badge tone="ok">Aktiv</Badge> : <Badge>Bağlı</Badge>}</span>}

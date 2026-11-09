@@ -25,7 +25,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
   return (
     <>
-      <PageHeader title="Hərəkət jurnalı" subtitle="Dəyişməz (append-only) stok jurnalı. Səhv qeydlər silinmir — ləğv (reversal) qeydi ilə düzəldilir." actions={<a className="btn" href={`/api/export/journal?${new URLSearchParams(clean)}`}>Excel</a>} />
+      <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]} title="Hərəkət jurnalı" subtitle="Dəyişməz (append-only) stok jurnalı. Səhv qeydlər silinmir — ləğv (reversal) qeydi ilə düzəldilir." actions={<a className="btn" href={`/api/export/journal?${new URLSearchParams(clean)}`}>Excel</a>} />
       <Card pad={false}>
         <form className="flex flex-wrap gap-2 border-b border-line p-3">
           <SearchBox placeholder="SKU, material, sənəd №" />

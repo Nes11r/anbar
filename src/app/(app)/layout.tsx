@@ -107,7 +107,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             Parolunuz administrator tərəfindən təyin edilib. <Link className="link" href="/account">Parolu dəyişin</Link>.
           </div>
         )}
-        <main id="main" className="mx-auto w-full max-w-[1600px] flex-1 px-3 py-4 pb-28 sm:px-4 md:p-6 lg:pb-6">{children}</main>
+        <main id="main" className="mx-auto w-full max-w-[1600px] flex-1 px-3 py-4 pb-28 sm:px-4 md:p-6 lg:pb-6">{children}<div id="print-tail" /></main>
         <footer className="no-print hidden border-t border-line px-6 py-3 text-xs text-muted lg:block">HECOTEC MMC · Mardanov Gardashlari 59, Bakı · Məlumatlar mərkəzi serverdə saxlanılır.</footer>
       </div>
       <MobileTabBar tabs={tabs} actions={actions} />

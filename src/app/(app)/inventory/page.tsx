@@ -22,7 +22,7 @@ export default async function InventoryList({ searchParams }: { searchParams: Pr
   const whs = new Map((await db.warehouse.findMany()).map((w) => [w.id, w.name]));
   return (
     <>
-      <PageHeader viewOnly={{ role: user.role, perm: "inventory.edit", action: "sayım sənədi yaratmaq" }} title="Sayım və ilkin qalıq" actions={can(user.role, "inventory.edit") && <Link href="/inventory/new" className="btn btn-primary">+ Yeni sayım</Link>} />
+      <PageHeader print={["Tərtib etdi", "Yoxladı"]} viewOnly={{ role: user.role, perm: "inventory.edit", action: "sayım sənədi yaratmaq" }} title="Sayım və ilkin qalıq" actions={can(user.role, "inventory.edit") && <Link href="/inventory/new" className="btn btn-primary">+ Yeni sayım</Link>} />
       <div className="mb-4 grid gap-3 md:grid-cols-2">
         <div className="card p-4 text-sm">
           <h2 className="mb-1 font-bold">1. İlkin qalıq — bir dəfə, sistemə başlayanda</h2>

@@ -22,7 +22,7 @@ export default async function GRNList({ searchParams }: { searchParams: Promise<
   const whs = new Map((await db.warehouse.findMany()).map((w) => [w.id, w.name]));
   return (
     <>
-      <PageHeader viewOnly={{ role: user.role, perm: "grn.edit", action: "mal qəbulunu qeyd etmək və təsdiqləmək" }} title="Mal qəbulu (GRN)" subtitle="Fiziki qəbul təsdiqləndikdə (POSTED) stok avtomatik artır. Eyni GRN-in təkrar təsdiqi ikiqat mədaxil yaratmır." />
+      <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]} viewOnly={{ role: user.role, perm: "grn.edit", action: "mal qəbulunu qeyd etmək və təsdiqləmək" }} title="Mal qəbulu (GRN)" subtitle="Fiziki qəbul təsdiqləndikdə (POSTED) stok avtomatik artır. Eyni GRN-in təkrar təsdiqi ikiqat mədaxil yaratmır." />
       {openPos.length > 0 && (
         <Card title="Qəbul gözləyən sifarişlər" className="mb-4" pad={false}>
           <ul className="divide-y divide-line">{openPos.map((p) => (

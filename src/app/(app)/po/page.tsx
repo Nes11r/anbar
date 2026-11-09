@@ -29,7 +29,7 @@ export default async function POList({ searchParams }: { searchParams: Promise<R
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
   return (
     <>
-      <PageHeader viewOnly={{ role: user.role, perm: "po.manage", action: "satınalma sifarişi yaratmaq və idarə etmək" }} title="Satınalma sifarişləri (PO)" actions={<><a className="btn" href="/api/export/po-status" download>Qəbul statusları (Excel)</a>{can(user.role, "po.override") && <Link href="/po/new" className="btn">+ MR-siz PO</Link>}</>} subtitle="PO təsdiqlənmiş MR-dan yaradılır (MR səhifəsində “PO yarat”)." />
+      <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]} viewOnly={{ role: user.role, perm: "po.manage", action: "satınalma sifarişi yaratmaq və idarə etmək" }} title="Satınalma sifarişləri (PO)" actions={<><a className="btn" href="/api/export/po-status" download>Qəbul statusları (Excel)</a>{can(user.role, "po.override") && <Link href="/po/new" className="btn">+ MR-siz PO</Link>}</>} subtitle="PO təsdiqlənmiş MR-dan yaradılır (MR səhifəsində “PO yarat”)." />
       <Card pad={false}>
         <div className="flex flex-col gap-3 border-b border-line p-3">
           <SearchBox placeholder="PO №, tədarükçü" />

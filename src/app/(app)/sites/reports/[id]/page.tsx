@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { fmtDate, fmtDateTime, fmtQty } from "@/lib/format";
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { ActionButton } from "@/components/client/action-button";
-import { PrintButton } from "@/components/print";
 import { variantOptionsByIds } from "@/server/services/catalog";
 import { siteReportToCountAction } from "../../actions";
 
@@ -26,13 +25,12 @@ export default async function SiteReportView({ params }: { params: Promise<{ id:
   const sign = (n: number) => (n > 0 ? `+${fmtQty(n)}` : fmtQty(n));
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Hesabatı verən (sahə anbardarı)", "Layihə rəhbəri", "Anbar müdiri"]}
         viewOnly={{ role: user.role, perm: "site.report", action: "sahə hesabatı daxil etmək" }}
         title={`Sahə hesabatı — ${r.project.code}, ${fmtDate(r.reportDate)}`}
         subtitle={`Hesabatı verən: ${r.reportedBy} · daxil edilib ${fmtDateTime(r.createdAt)}`}
         crumbs={[{ href: "/sites", label: "Sahə anbarları" }, { href: `/sites/${r.projectId}`, label: r.project.code }, { label: fmtDate(r.reportDate) }]}
         actions={<>
-          <PrintButton />
           {stockDiffs > 0 && can(user.role, "inventory.edit") && (
             <ActionButton className="btn btn-primary" action={siteReportToCountAction.bind(null, r.id)} confirm={`Stok fərqi olan ${stockDiffs} material üçün sahə anbarında qaralama sayım yaradılsın? Anbar müdiri təsdiq edənə qədər qalıq dəyişmir.`}>
               Stok fərqini sayım sənədinə çevir

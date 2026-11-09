@@ -14,7 +14,7 @@ export default async function SitesPage() {
   const daysAgo = (d: Date | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400_000) : null);
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Anbar müdiri", "Rəhbər"]}
         viewOnly={{ role: user.role, perm: "site.report", action: "gündəlik sahə hesabatını daxil etmək" }}
         title="Sahə anbarları"
         subtitle="Hər layihənin sahəsində materialın cəmi: sahə anbarında stokda + işçilərin üzərində. Sahədən gələn tələbi bura baxıb yoxlayın."

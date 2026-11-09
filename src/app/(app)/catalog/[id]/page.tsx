@@ -59,7 +59,7 @@ export default async function MaterialPage({ params, searchParams }: { params: P
 
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Tərtib etdi", "Yoxladı"]}
         viewOnly={{ role: user.role, perm: "catalog.manage", action: "materialı dəyişmək və arxivləmək" }}
         title={`${m.nameAz}`}
         subtitle={<span className="flex flex-wrap items-center gap-2"><span className="font-semibold">{m.code}</span><GroupBadge group={m.workerGroup} />{m.isActive ? <Badge tone="ok">Aktiv</Badge> : <Badge tone="muted">Arxiv</Badge>}</span>}

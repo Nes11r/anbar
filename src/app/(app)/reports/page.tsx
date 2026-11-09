@@ -28,7 +28,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const wrk = ppe.filter((r) => r.employeeGroup === "WORKER").reduce((a, r) => a + Number(r.net), 0);
   return (
     <>
-      <PageHeader title="Hesabatlar və çıxarışlar" subtitle="Excel/CSV faylında hazırlanma vaxtı, istifadəçi, filtr və dövr göstərilir. Layihə və işçi hesabatları öz kartlarındadır." />
+      <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]} title="Hesabatlar və çıxarışlar" subtitle="Excel/CSV faylında hazırlanma vaxtı, istifadəçi, filtr və dövr göstərilir. Layihə və işçi hesabatları öz kartlarındadır." />
       <form className="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <label className="label"><span>Başlanğıc</span><input className="input" type="date" name="from" defaultValue={from} /></label>
         <label className="label"><span>Son</span><input className="input" type="date" name="to" defaultValue={to} /></label>

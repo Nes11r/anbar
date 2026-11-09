@@ -129,12 +129,27 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 1.5; -webkit
 
 /* Print: documents (MR / PO / GRN / Issue slip) */
 @media print {
-  @page { size: A4; margin: 14mm; }
+  @page { size: A4; margin: 12mm; }
+  /* always print in light colours, whatever the screen theme */
+  :root:root:root {
+    --bg: #fff; --surface: #fff; --surface-2: #f1f4f5; --ink: #000; --muted: #333; --line: #9aa; --line-strong: #778;
+    --brand: #006381; --brand-ink: #fff; --brand-soft: #e1eff3; --ok: #1d5e37; --ok-soft: #fff; --warn: #7a4d00; --warn-soft: #fff;
+    --bad: #9b1c15; --bad-soft: #fff; --info: #1f5f99; --info-soft: #fff; --shadow: none; color-scheme: light;
+  }
   .no-print { display: none !important; }
   body { background: #fff !important; color: #000 !important; font-size: 11px; }
-  .card { box-shadow: none !important; border-color: #999 !important; }
+  .card { box-shadow: none !important; border-color: #999 !important; break-inside: auto; }
   .print-only { display: block !important; }
-  main { padding: 0 !important; }
+  main { padding: 0 !important; max-width: none !important; }
+  /* controls are useless on paper: buttons, filters, search, paging */
+  main .btn, main .chip, main form, main input, main select, main textarea, main nav[aria-label="Səhifələr"] { display: none !important; }
+  .tbl-wrap { overflow: visible !important; }
+  .tbl { font-size: 10.5px; }
+  .tbl th { position: static !important; }
+  .tbl thead { display: table-header-group; }
+  .tbl tr { break-inside: avoid; }
+  a { color: inherit !important; text-decoration: none !important; }
+  .print-signatures { break-inside: avoid; }
 }
 .print-only { display: none; }
 
@@ -142,7 +157,7 @@ body { font-family: var(--font-sans); font-size: 14px; line-height: 1.5; -webkit
 html { -webkit-tap-highlight-color: transparent; }
 @media (display-mode: standalone) { body { overscroll-behavior-y: none; } }
 
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   /* iOS zooms into inputs < 16px — prevent it; bigger touch targets */
   .input, .select, .textarea { font-size: 16px; min-height: 44px; }
   .btn { min-height: 42px; padding: 0 14px; }

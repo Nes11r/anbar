@@ -36,7 +36,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   const canEdit = can(user.role, "stockdoc.edit");
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]}
         viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "mədaxil/məxaric sənədi yaratmaq və təsdiqləmək" }}
         title="Mədaxil / Məxaric sənədləri"
         subtitle="Layihəyə ümumi məxaric və işçiyə PPE təhvili ayrı əməliyyat növləridir — eyni ədəd iki dəfə çıxılmır."

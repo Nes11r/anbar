@@ -26,7 +26,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
   return (
     <>
-      <PageHeader title="Audit jurnalı" subtitle="Kim, nə vaxt, nəyi dəyişib. Jurnal dəyişdirilə və silinə bilməz (DB trigger)." />
+      <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]} title="Audit jurnalı" subtitle="Kim, nə vaxt, nəyi dəyişib. Jurnal dəyişdirilə və silinə bilməz (DB trigger)." />
       <Card pad={false}>
         <div className="flex flex-wrap gap-2 border-b border-line p-3">
           <SearchBox placeholder="Xülasə, e-poçt, qeyd ID" />

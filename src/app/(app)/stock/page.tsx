@@ -23,7 +23,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
   return (
     <>
-      <PageHeader
+      <PageHeader print={["Anbardar", "Anbar müdiri"]}
         viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "qalığı dəyişmək (yalnız mədaxil/məxaric sənədləri ilə)" }}
         title="Anbar qalığı"
         subtitle="Hər material üzrə: harada nə qədər var (ofis və sahə anbarları). Mövcud = fiziki qalıq − rezerv. İşçilərə verilənlər bura daxil deyil — onlar “Sahə anbarları”nda görünür."
