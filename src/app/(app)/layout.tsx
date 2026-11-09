@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { requirePage } from "@/lib/auth";
-import { can, scopeProjectId, type Permission } from "@/lib/rbac";
+import { can, isStockRequester, scopeProjectId, type Permission } from "@/lib/rbac";
 import { az } from "@/i18n/az";
 import { logoutAction } from "@/app/login/actions";
 import { MenuButton, SideNav } from "@/components/client/side-nav";
@@ -55,7 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const scope = scopeProjectId(user);
   const actions: TabItem[] = [
     ...(can(user.role, "site.report") ? [{ href: scope ? `/sites/${scope}/report` : "/sites", label: "Sahə hesabatı", icon: ICON.count }] : []),
-    ...(can(user.role, "stockdoc.edit") && !scope ? [{ href: "/movements/new?kind=TRANSFER", label: "Sahəyə göndər", icon: ICON.trf }] : []),
+    ...(can(user.role, "stockdoc.edit") && (!scope || isStockRequester(user.role)) ? [{ href: "/movements/new?kind=TRANSFER", label: isStockRequester(user.role) ? "Material istə" : "Sahəyə göndər", icon: ICON.trf }] : []),
     ...(can(user.role, "stockdoc.edit") ? [
       { href: "/movements/new?kind=ISSUE_PROJECT", label: "Sahədə istifadə", icon: ICON.out },
       { href: "/movements/new?kind=ISSUE_EMPLOYEE", label: "İşçiyə təhvil", icon: ICON.ppe },

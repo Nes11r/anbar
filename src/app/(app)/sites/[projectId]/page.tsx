@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePage } from "@/lib/auth";
-import { can, scopeProjectId } from "@/lib/rbac";
+import { can, isStockRequester, scopeProjectId } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { fmtDate, fmtQty } from "@/lib/format";
 import { Badge, Card, Empty, GroupBadge, PageHeader } from "@/components/ui";
@@ -41,7 +41,7 @@ export default async function SitePage({ params }: { params: Promise<{ projectId
           {can(user.role, "site.report") && <Link className="btn btn-primary" href={`/sites/${p.id}/report`}>+ Gündəlik hesabat</Link>}
           {wh && can(user.role, "stockdoc.edit") && <Link className="btn" href={`/movements/new?kind=ISSUE_EMPLOYEE&wh=${wh.id}`}>İşçiyə təhvil</Link>}
           {wh && can(user.role, "stockdoc.edit") && <Link className="btn" href={`/movements/new?kind=ISSUE_PROJECT&wh=${wh.id}`}>Sahədə istifadə (sərf)</Link>}
-          {wh && can(user.role, "stockdoc.edit") && !scope && <Link className="btn" href={`/movements/new?kind=TRANSFER&to=${wh.id}`}>Ofisdən sahəyə göndər</Link>}
+          {wh && can(user.role, "stockdoc.edit") && (!scope || isStockRequester(user.role)) && <Link className="btn" href={`/movements/new?kind=TRANSFER&to=${wh.id}`}>{isStockRequester(user.role) ? "Ofisdən material istə" : "Ofisdən sahəyə göndər"}</Link>}
           {wh && can(user.role, "stockdoc.edit") && <Link className="btn" href={`/movements/new?kind=TRANSFER&wh=${wh.id}`}>Artığı ofisə qaytar</Link>}
           {wh && can(user.role, "stock.view") && <Link className="btn" href={`/stock?wh=${wh.id}`}>Sahə anbarının qalığı</Link>}
           {can(user.role, "project.view") && <Link className="btn" href={`/projects/${p.id}`}>Layihə məlumatı və hesabatı</Link>}

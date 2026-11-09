@@ -17,6 +17,8 @@ export interface StockDocOptions {
   canOverride: boolean;
   /** Project-limited users may only take material out of these warehouses (their site + quarantine). */
   sourceWarehouseIds?: string[];
+  /** creates requests (drafts) that the warehouse approves */
+  requestOnly?: boolean;
 }
 export interface StockDocInitial {
   kind: Kind; warehouseId: string; toWarehouseId?: string | null; projectId?: string | null; employeeId?: string | null; employeeName?: string | null; employeeGroup?: "ENGINEER" | "WORKER" | null; supplierId?: string | null;
@@ -214,11 +216,11 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
         />
       </section>
       <div className="flex gap-2">
-        <button className="btn btn-primary" disabled={pending}>{pending ? "Təsdiqlənir…" : id ? "Dəyişiklikləri saxla" : "Təsdiqlə"}</button>
+        <button className="btn btn-primary" disabled={pending}>{pending ? (options.requestOnly ? "Göndərilir…" : "Təsdiqlənir…") : id ? "Dəyişiklikləri saxla" : options.requestOnly ? "Təsdiqə göndər" : "Təsdiqlə"}</button>
         <button type="button" className="btn" onClick={() => router.back()}>İmtina</button>
       </div>
       <p className="text-xs text-muted">
-        {id ? "Bu qaralamadır — saxladıqdan sonra sənəd səhifəsində “Təsdiqlə” düyməsini basın." : kind === "TRANSFER" ? "“Təsdiqlə” basanda materiallar dərhal seçilən layihənin sahə anbarına keçir və sahə anbarı səhifəsi açılır." : "“Təsdiqlə” basanda qalıq dərhal yenilənir. Səhv olarsa, sənəd səhifəsindən ləğv edə bilərsiniz."}
+        {options.requestOnly ? "Bu sorğudur: anbardar və ya anbar müdiri təsdiqləyəndə qalıq dəyişəcək. Təsdiqə qədər sorğunu dəyişə və ya ləğv edə bilərsiniz." : id ? "Bu qaralamadır — saxladıqdan sonra sənəd səhifəsində “Təsdiqlə” düyməsini basın." : kind === "TRANSFER" ? "“Təsdiqlə” basanda materiallar dərhal seçilən layihənin sahə anbarına keçir və sahə anbarı səhifəsi açılır." : "“Təsdiqlə” basanda qalıq dərhal yenilənir. Səhv olarsa, sənəd səhifəsindən ləğv edə bilərsiniz."}
       </p>
     </form>
   );

@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
-import { can, scopeProjectId } from "@/lib/rbac";
+import { can, isStockRequester, scopeProjectId } from "@/lib/rbac";
 import type { UserRole } from "@prisma/client";
 import type { StockDocOptions } from "./stockdoc-form";
 
-export async function stockDocOptions(role: UserRole, user?: { role: UserRole; projectId?: string | null }): Promise<StockDocOptions> {
+export async function stockDocOptions(role: UserRole, user?: { role: UserRole; projectId?: string | null }, kind?: string): Promise<StockDocOptions> {
   const scope = user ? scopeProjectId(user) : null;
   const [warehouses, projects, employees, suppliers] = await Promise.all([
     // a site user also sees the office warehouse(s) — only as a place to send leftovers back to
@@ -18,6 +18,10 @@ export async function stockDocOptions(role: UserRole, user?: { role: UserRole; p
     employees: employees.map((e) => ({ id: e.id, name: e.fullName, label: `${e.fullName} (${e.code})`, group: e.group, projectId: e.projectId })),
     suppliers: suppliers.map((s) => ({ id: s.id, label: s.name })),
     canOverride: can(role, "issue.override"),
-    sourceWarehouseIds: scope ? warehouses.filter((w) => w.projectId === scope || w.type === "QUARANTINE").map((w) => w.id) : undefined,
+    requestOnly: isStockRequester(role),
+    // a site user works from their own site; a project manager may also REQUEST a transfer from the office to the site
+    sourceWarehouseIds: scope
+      ? warehouses.filter((w) => w.projectId === scope || w.type === "QUARANTINE" || (kind === "TRANSFER" && isStockRequester(role) && !w.projectId && w.type === "NORMAL")).map((w) => w.id)
+      : undefined,
   };
 }

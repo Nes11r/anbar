@@ -8,17 +8,17 @@ import { saveEmployee, saveProject, updateEmployeeAssignment } from "@/server/se
 import { createGRN, createMR, createPO, decideMR, postGRN, setPOPayment, setPOShipment, setPOStatus, submitMR } from "@/server/services/procurement";
 import { registerAccount } from "@/server/services/registration";
 import { createSiteReport, siteMaterials, siteOverview, siteReportToCount, siteWorkerHoldings } from "@/server/services/sites";
-import { createAndPostStockDoc, createStockDoc, postStockDoc, siteRedirectFor } from "@/server/services/stockdocs";
+import { cancelStockDoc, createAndPostStockDoc, createStockDoc, postStockDoc, siteRedirectFor } from "@/server/services/stockdocs";
 import { mrTimeline, currentStageLabel } from "@/server/services/tracking";
 import { baseData, makeUser, resetDb } from "./helpers";
 
-let wm: Actor, sk: Actor, pm: Actor, proc: Actor;
+let wm: Actor, sk: Actor, pm: Actor, proc: Actor, boss: Actor;
 let B: Awaited<ReturnType<typeof baseData>>;
 const today = new Date();
 
 async function setup() {
-  const project = await saveProject(wm, null, { code: "SGC", name: "Səngəçal", isActive: true });
-  const other = await saveProject(wm, null, { code: "BKU", name: "Bakı", isActive: true });
+  const project = await saveProject(boss, null, { code: "SGC", name: "Səngəçal", isActive: true });
+  const other = await saveProject(boss, null, { code: "BKU", name: "Bakı", isActive: true });
   const site = await db.warehouse.findUniqueOrThrow({ where: { projectId: project.id } });
   const m = await createMaterial(wm, { code: "COV", nameAz: "Kombinezon", categoryId: B.uniform.id, workerGroup: "WORKER", sizeType: "CLOTHING_NUMERIC", unitCode: "PCS", minStock: 0, variants: [{ size: "52", color: "" }] } as never);
   const v = m.variants[0];
@@ -36,13 +36,16 @@ beforeEach(async () => {
   sk = await makeUser("STOREKEEPER");
   pm = await makeUser("PROJECT_MANAGER");
   proc = await makeUser("PROCUREMENT");
+  boss = await makeUser("SUPER_ADMIN");
 });
 
 describe("Sahə anbarları", () => {
   it("layihə yaradılanda öz sahə anbarı avtomatik açılır", async () => {
-    const p = await saveProject(wm, null, { code: "NEW1", name: "Yeni", isActive: true });
+    const p = await saveProject(boss, null, { code: "NEW1", name: "Yeni", isActive: true });
     const w = await db.warehouse.findUnique({ where: { projectId: p.id } });
     expect(w?.code).toBe("SAHE-NEW1");
+    // only leadership opens projects
+    for (const a of [wm, pm, sk, proc]) await expect(saveProject(a, null, { code: "NO1", name: "Yox", isActive: true })).rejects.toThrow();
   });
 
   it("Ofis → sahə → işçi: sahədə cəmi = stokda + işçilərdə; ofis qalığı düzgün azalır", async () => {
@@ -103,6 +106,29 @@ describe("Sahə anbarları", () => {
     await expect(createSiteReport(siteKeeper, { projectId: (await db.project.findFirstOrThrow({ where: { code: "BKU" } })).id, reportDate: today, reportedBy: "X Y", lines: [{ variantId: v.id, stockQty: 0, withWorkersQty: 0 }] })).rejects.toThrow(/səlahiyyət dairənizdə/);
     void pm;
   });
+
+  it("layihə rəhbəri anbardan material sorğusu yaradır, qalığı yalnız anbardar / anbar müdiri təsdiqləyəndə dəyişir", async () => {
+    const { project, other, site, v } = await setup();
+    const sitePm: Actor = { ...(await makeUser("PROJECT_MANAGER", "pm.site@test.local")), projectId: project.id };
+    // request: office → own site; one-step "submit" leaves a draft (request), no stock moves
+    const r = await createAndPostStockDoc(sitePm, { kind: "TRANSFER", warehouseId: B.wh.id, toWarehouseId: site.id, recipientName: "Sürücü", docDate: today, lines: [{ variantId: v.id, qty: 4 }] } as never);
+    expect(r.posted).toBe(false);
+    expect((await db.stockDocument.findUniqueOrThrow({ where: { id: r.id } })).status).toBe("DRAFT");
+    expect(await db.stockBalance.findFirst({ where: { warehouseId: site.id, variantId: v.id } })).toBeNull();
+    // the project manager cannot approve it
+    await expect(postStockDoc(sitePm, r.id)).rejects.toThrow();
+    // not for another project's site, and no adjustments / supplier returns
+    const otherSite = await db.warehouse.findUniqueOrThrow({ where: { projectId: other.id } });
+    await expect(createStockDoc(sitePm, { kind: "TRANSFER", warehouseId: B.wh.id, toWarehouseId: otherSite.id, recipientName: "X", docDate: today, lines: [{ variantId: v.id, qty: 1 }] })).rejects.toThrow(/sahə anbarı/);
+    await expect(createStockDoc(sitePm, { kind: "ADJUSTMENT", warehouseId: site.id, reason: "itki", docDate: today, lines: [{ variantId: v.id, qty: 1, direction: -1 }] } as never)).rejects.toThrow(/Sorğu yalnız/);
+    // another user's draft cannot be changed by the project manager
+    const skDraft = await createStockDoc(sk, { kind: "TRANSFER", warehouseId: B.wh.id, toWarehouseId: site.id, recipientName: "Y", docDate: today, lines: [{ variantId: v.id, qty: 1 }] });
+    await expect(cancelStockDoc(sitePm, skDraft.id)).rejects.toThrow(/öz sorğunuzu/);
+    // the storekeeper approves → stock moves to the site
+    await postStockDoc(sk, r.id);
+    const bal = await db.stockBalance.findFirstOrThrow({ where: { warehouseId: site.id, variantId: v.id } });
+    expect(Number(bal.onHand)).toBe(4);
+  });
 });
 
 describe("Bir addımda təsdiq (Təsdiqlə)", () => {
@@ -154,7 +180,7 @@ describe("Sərf materialı və işçinin layihə dəyişməsi", () => {
     expect(Number((await siteMaterials(project.id)).find((m) => m.variantId === v.id)?.withWorkers ?? 0)).toBe(0);
     expect(Number((await siteMaterials(other.id)).find((m) => m.variantId === v.id)!.withWorkers)).toBe(1);
     // a project with material left on site / with workers cannot be closed
-    await expect(saveProject(wm, other.id, { code: "BKU", name: "Bakı", isActive: false })).rejects.toThrow(/bağlamaq olmur/);
+    await expect(saveProject(boss, other.id, { code: "BKU", name: "Bakı", isActive: false })).rejects.toThrow(/bağlamaq olmur/);
   });
 });
 

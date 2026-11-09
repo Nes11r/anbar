@@ -25,7 +25,7 @@ export default async function NewMovement({ searchParams }: { searchParams: Prom
   const q = await searchParams;
   const kind = sp(q.kind) as StockDocKind;
   if (!(kind in az.stockDocKind)) notFound();
-  const options = await stockDocOptions(user.role, user);
+  const options = await stockDocOptions(user.role, user, kind);
   const uuid = (v: string) => (/^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
   const preset = { warehouseId: uuid(sp(q.wh)), toWarehouseId: uuid(sp(q.to)), employeeId: uuid(sp(q.employee)) };
   return (

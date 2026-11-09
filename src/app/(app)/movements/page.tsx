@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Prisma, StockDocKind } from "@prisma/client";
 import { requirePage } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, isStockRequester } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
 import { fmtDate, sp } from "@/lib/format";
@@ -34,6 +34,8 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   const wm = new Map(whs.map((w) => [w.id, w.name]));
   const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v));
   const canEdit = can(user.role, "stockdoc.edit");
+  const requester = isStockRequester(user.role);
+  const pendingDocs = can(user.role, "stockdoc.post") && params.status !== "DRAFT" ? await db.stockDocument.count({ where: { status: "DRAFT" } }) : 0;
   return (
     <>
       <PageHeader print={["Tərtib etdi", "Yoxladı", "Təsdiq etdi"]}
@@ -47,17 +49,24 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
             <Link className="btn" href="/movements/new?kind=ISSUE_PROJECT">Sahədə istifadə (sərf)</Link>
             <Link className="btn" href="/movements/new?kind=RETURN_FROM_EMPLOYEE">İşçidən geri alma</Link>
             <Link className="btn" href="/movements/new?kind=RETURN_FROM_PROJECT">İstifadədən qaytarma</Link>
-            <Link className="btn" href="/movements/new?kind=ADJUSTMENT">Düzəliş</Link>
-            <Link className="btn" href="/movements/new?kind=RETURN_TO_SUPPLIER">Tədarükçüyə qaytarma</Link>
+            {!requester && <Link className="btn" href="/movements/new?kind=ADJUSTMENT">Düzəliş</Link>}
+            {!requester && <Link className="btn" href="/movements/new?kind=RETURN_TO_SUPPLIER">Tədarükçüyə qaytarma</Link>}
           </div>
         )}
       />
+      {requester && <div className="alert alert-info mb-3 text-sm">Siz <b>sorğu</b> yaradırsınız: anbardar və ya anbar müdiri təsdiqləyəndə qalıq dəyişir. Öz sorğularınızı “Qaralama” filtri ilə görə bilərsiniz.</div>}
+      {pendingDocs > 0 && (
+        <div className="alert alert-warn mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="flex-1"><b>{pendingDocs} sorğu / qaralama təsdiq gözləyir.</b></span>
+          <Link className="btn btn-sm" href="/movements?status=DRAFT">Göstər</Link>
+        </div>
+      )}
       <p className="mb-3 text-xs text-muted">Tədarükçüdən mədaxil yalnız <Link className="link" href="/grn">Mal qəbulu (GRN)</Link> ilə, açılış qalığı isə <Link className="link" href="/inventory">İnventarlaşdırma</Link> ilə daxil olur.</p>
       <Card pad={false}>
         <div className="flex flex-col gap-3 border-b border-line p-3">
           <SearchBox placeholder="Sənəd №, təhvil alan, xarici sənəd" />
           <FilterChips name="kind" value={params.kind} params={clean} options={[["", "Bütün növlər"], ...KINDS.map((k) => [k, az.stockDocKind[k]] as [string, string])]} />
-          <FilterChips name="status" value={params.status} params={clean} options={[["", "Bütün statuslar"], ["DRAFT", "Qaralama"], ["POSTED", "Təsdiqlənib"], ["REVERSED", "Geri qaytarılıb"], ["CANCELLED", "Ləğv"]]} />
+          <FilterChips name="status" value={params.status} params={clean} options={[["", "Bütün statuslar"], ["DRAFT", "Təsdiq gözləyir (qaralama)"], ["POSTED", "Təsdiqlənib"], ["REVERSED", "Geri qaytarılıb"], ["CANCELLED", "Ləğv"]]} />
         </div>
         {rows.length === 0 ? <Empty title="Sənəd yoxdur" hint="Yuxarıdakı düymələrlə yeni əməliyyat yaradın." /> : (
           <div className="tbl-wrap">

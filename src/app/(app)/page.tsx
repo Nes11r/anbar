@@ -14,11 +14,19 @@ export default async function Dashboard() {
   const user = await requirePage("dashboard.view");
   const canMr = can(user.role, "mr.create");
   const pendingMr = await db.materialRequest.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } });
+  // stock requests (drafts) waiting for the warehouse to approve
+  const pendingDocs = can(user.role, "stockdoc.post") ? await db.stockDocument.count({ where: { status: "DRAFT" } }) : 0;
   const [k, low, recent, top] = await Promise.all([dashboardKpis(), lowStock(8), recentMovements(10), topIssuedMaterials(90, 8)]);
   const isEmpty = k.uniqueSkus === 0 && recent.length === 0;
   return (
     <>
       <PageHeader title={az.nav.dashboard} subtitle="Bütün rəqəmlər təsdiqlənmiş anbar jurnalından hesablanır (karantin anbarı istisna)." />
+      {pendingDocs > 0 && (
+        <div className="alert alert-warn mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="flex-1"><b>{pendingDocs} anbar sorğusu / qaralama təsdiq gözləyir.</b> Qalıq yalnız təsdiqdən sonra dəyişir.</span>
+          <Link className="btn btn-sm" href="/movements?status=DRAFT">Bax və təsdiqlə</Link>
+        </div>
+      )}
       {isEmpty && (
         <div className="alert alert-info mb-4">
           Sistemdə hələ təsdiqlənmiş hərəkət yoxdur. Başlamaq üçün: <Link className="link" href="/catalog/new">material əlavə edin</Link> və ya{" "}

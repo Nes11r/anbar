@@ -11,7 +11,7 @@ export async function createAndPostStockDocAction(input: StockDocInput) {
   return runAction("stockdoc.edit", async (a) => {
     const r = await createAndPostStockDoc(a, input);
     return { ...r, redirect: r.posted ? await siteRedirectFor(r.id) : `/movements/${r.id}` };
-  }, { revalidate: R, message: (r) => (r.posted ? `Təsdiqləndi: ${r.number}. Qalıq yeniləndi.` : `${r.number} saxlanıldı — təsdiqi anbar müdiri edəcək.`) });
+  }, { revalidate: R, message: (r) => (r.posted ? `Təsdiqləndi: ${r.number}. Qalıq yeniləndi.` : r.kind === "ADJUSTMENT" ? `${r.number} saxlanıldı — təsdiqi anbar müdiri edəcək.` : `Sorğu göndərildi: ${r.number}. Anbardar və ya anbar müdiri təsdiqləyəndə qalıq dəyişəcək.`) });
 }
 export async function updateStockDocAction(id: string, version: number, input: StockDocInput) {
   return runAction("stockdoc.edit", (a) => updateStockDoc(a, id, version, input).then(() => ({ id })), { revalidate: ["/movements"], message: "Qaralama yeniləndi" });

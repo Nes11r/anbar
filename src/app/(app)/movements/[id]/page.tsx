@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DeleteButton } from "@/components/delete-button";
 import { notFound } from "next/navigation";
 import { requirePage } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, isStockRequester } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
 import { fmtDate, fmtDateTime, fmtQty, isoDate, sp } from "@/lib/format";
@@ -31,15 +31,19 @@ export default async function MovementPage({ params, searchParams }: { params: P
     d.supplierId ? db.supplier.findUnique({ where: { id: d.supplierId } }) : null,
     d.reversalOfId ? db.stockDocument.findUnique({ where: { id: d.reversalOfId }, select: { id: true, number: true } }) : null,
     db.stockDocument.findFirst({ where: { reversalOfId: d.id }, select: { id: true, number: true } }),
-    db.user.findMany({ where: { id: { in: [d.createdById, d.postedById].filter(Boolean) as string[] } }, select: { id: true, name: true } }),
+    db.user.findMany({ where: { id: { in: [d.createdById, d.postedById].filter(Boolean) as string[] } }, select: { id: true, name: true, role: true } }),
     d.reversalOfId ? db.stockLedgerEntry.findMany({ where: { docId: d.id } }) : null,
   ]);
   const wn = (wid: string | null) => whs.find((w) => w.id === wid)?.name ?? "—";
   const un = (uid: string | null) => users.find((u) => u.id === uid)?.name ?? "—";
   const draft = d.status === "DRAFT";
+  const creatorRole = users.find((u) => u.id === d.createdById)?.role;
+  // a project manager's request: they may change / cancel only their own; the warehouse approves it
+  const mayEdit = can(user.role, "stockdoc.edit") && (!isStockRequester(user.role) || d.createdById === user.id);
+  const isRequest = draft && !!creatorRole && isStockRequester(creatorRole);
 
-  if (draft && sp(s.edit) === "1" && can(user.role, "stockdoc.edit")) {
-    const options = await stockDocOptions(user.role, user);
+  if (draft && sp(s.edit) === "1" && mayEdit) {
+    const options = await stockDocOptions(user.role, user, d.kind);
     return (
       <>
         <PageHeader viewOnly={{ role: user.role, perm: "stockdoc.edit", action: "sənədi dəyişmək və təsdiqləmək" }} title={`Düzəliş: ${d.number}`} crumbs={[{ href: "/movements", label: "Mədaxil / Məxaric" }, { href: `/movements/${d.id}`, label: d.number }, { label: "Düzəliş" }]} />
@@ -69,9 +73,9 @@ export default async function MovementPage({ params, searchParams }: { params: P
         actions={
           <>
             <PrintButton />
-            {draft && can(user.role, "stockdoc.edit") && <Link className="btn" href={`/movements/${d.id}?edit=1`}>Düzəliş</Link>}
-            {draft && can(user.role, "stockdoc.edit") && <ActionButton className="btn" action={cancelStockDocAction.bind(null, d.id)} confirm="Qaralama ləğv edilsin?">Ləğv et</ActionButton>}
-            {(draft || d.status === "CANCELLED") && can(user.role, "stockdoc.edit") && <DeleteButton type="stockDocument" id={d.id} label={d.number} />}
+            {draft && mayEdit && <Link className="btn" href={`/movements/${d.id}?edit=1`}>Düzəliş</Link>}
+            {draft && mayEdit && <ActionButton className="btn" action={cancelStockDocAction.bind(null, d.id)} confirm={isRequest ? "Sorğu ləğv edilsin?" : "Qaralama ləğv edilsin?"}>{isRequest ? "Sorğunu ləğv et" : "Ləğv et"}</ActionButton>}
+            {(draft || d.status === "CANCELLED") && can(user.role, "stockdoc.post") && <DeleteButton type="stockDocument" id={d.id} label={d.number} />}
             {draft && can(user.role, d.kind === "ADJUSTMENT" ? "adjustment.post" : "stockdoc.post") && (
               <ActionButton className="btn btn-primary" action={postStockDocAction.bind(null, d.id)} confirm={`${d.number} təsdiqlənsin? Qalıq dərhal yenilənəcək. Təsdiqlənmiş sənəd silinmir, yalnız ləğv sənədi ilə geri qaytarılır.`}>
                 Təsdiqlə
@@ -85,6 +89,11 @@ export default async function MovementPage({ params, searchParams }: { params: P
           </>
         }
       />
+      {isRequest && (
+        <div className="alert alert-info no-print mb-3 text-sm">
+          <b>Təsdiq gözləyən sorğu.</b> {can(user.role, "stockdoc.post") ? "Materialları yoxlayın və “Təsdiqlə” basın — qalıq yalnız təsdiqdən sonra dəyişir." : "Anbardar və ya anbar müdiri təsdiqləyəndə qalıq dəyişəcək."}
+        </div>
+      )}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Sənəd məlumatı">
           <dl className="kv">
@@ -98,7 +107,7 @@ export default async function MovementPage({ params, searchParams }: { params: P
             {d.purpose && <><dt>Məqsəd</dt><dd>{d.purpose}</dd></>}
             {d.reason && <><dt>Səbəb</dt><dd>{d.reason}</dd></>}
             {d.externalRef && <><dt>Xarici sənəd</dt><dd>{d.externalRef}</dd></>}
-            <dt>Yaradan</dt><dd>{un(d.createdById)} · {fmtDateTime(d.createdAt)}</dd>
+            <dt>{isRequest ? "Sorğu edən" : "Yaradan"}</dt><dd>{un(d.createdById)} · {fmtDateTime(d.createdAt)}</dd>
             <dt>Təsdiqləyən</dt><dd>{d.postedById ? `${un(d.postedById)} · ${fmtDateTime(d.postedAt)}` : "—"}</dd>
             {d.notes && <><dt>Qeyd</dt><dd>{d.notes}</dd></>}
           </dl>

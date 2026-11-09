@@ -28,7 +28,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
     WHERE w.type = 'QUARANTINE' AND b."onHand" > 0 GROUP BY w.id, w.name`;
   return (
     <>
-      {quarantine.length > 0 && can(user.role, "stockdoc.edit") && (
+      {quarantine.length > 0 && can(user.role, "stockdoc.post") && (
         <div className="alert alert-warn no-print mb-3 flex flex-wrap items-center gap-2 text-sm">
           <span className="flex-1"><b>Karantində qüsurlu mal var:</b> {quarantine.map((x) => `${x.name} — ${fmtQty(x.q)} vahid`).join("; ")}. Yararsızdırsa silin, ya da tədarükçüyə qaytarın.</span>
           {quarantine.map((x) => (

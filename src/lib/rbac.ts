@@ -27,17 +27,20 @@ export const PERMISSIONS = {
   "grn.edit": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   "grn.post": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   "stockdoc.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER", "AUDITOR"],
-  "stockdoc.edit": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
+  /** Create stock documents. Roles without stockdoc.post (project manager) create REQUESTS that a storekeeper / warehouse manager approves. */
+  "stockdoc.edit": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER"],
   "stockdoc.post": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER"],
   "adjustment.post": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   "document.reverse": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   /** Issue PPE to an employee whose group does not match the material (reason required) */
   "issue.override": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   "project.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
-  "project.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "PROJECT_MANAGER"],
+  /** Create / edit / close projects — leadership only */
+  "project.manage": ["SUPER_ADMIN", "DIRECTOR"],
   "employee.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROJECT_MANAGER", "AUDITOR"],
   "employee.manage": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
-  "report.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"],
+  /** Analytics (Hesabatlar) — leadership only */
+  "report.view": ["SUPER_ADMIN", "DIRECTOR"],
   "import.run": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER"],
   "audit.view": ["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "AUDITOR"],
   "settings.manage": ["SUPER_ADMIN"],
@@ -71,6 +74,11 @@ export const NO_PROJECT = "00000000-0000-0000-0000-000000000000";
 export function scopeProjectId(u: { role: UserRole; projectId?: string | null }): string | null {
   if (u.role === "CLIENT") return NO_PROJECT;
   return u.projectId && SCOPABLE_ROLES.includes(u.role) ? u.projectId : null;
+}
+
+/** Creates stock documents only as requests (drafts) for the warehouse to approve. */
+export function isStockRequester(role: UserRole): boolean {
+  return can(role, "stockdoc.edit") && !can(role, "stockdoc.post");
 }
 
 /** Roles that hold a permission (for "who can change this" notices). */

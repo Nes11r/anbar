@@ -2,7 +2,7 @@ import { Prisma, type StockDocKind } from "@prisma/client";
 import { z } from "zod";
 import { db, withTx, type Tx } from "@/lib/db";
 import { AppError, ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { can } from "@/lib/rbac";
+import { can, isStockRequester } from "@/lib/rbac";
 import { audit, statusChange, type Actor } from "../audit";
 import { applyMovements, nextNumber, reversalMovements, type LedgerMovement } from "../stock/ledger";
 import { D, groupCompatible, validateQty } from "../stock/rules";
@@ -110,16 +110,38 @@ async function validateHeader(c: Tx | typeof db, d: StockDocInput) {
  * Users limited to one project (site storekeeper / project manager) may only work with their own
  * site warehouse, their own project and their own project's employees.
  */
+/** Kinds a requester (project manager) may ask for; the warehouse approves them. */
+export const REQUEST_KINDS: readonly StockDocKind[] = ["TRANSFER", "ISSUE_PROJECT", "ISSUE_EMPLOYEE", "RETURN_FROM_EMPLOYEE", "RETURN_FROM_PROJECT"];
+
+function assertRequestKind(actor: Actor, kind: StockDocKind) {
+  if (isStockRequester(actor.role) && !REQUEST_KINDS.includes(kind)) {
+    throw new ForbiddenError("Sorğu yalnız göndərmə, sahədə istifadə, işçiyə təhvil və qaytarma üçün yaradıla bilər. Düzəlişi anbar müdiri edir.");
+  }
+}
+
+/** A requester may change / cancel only their own requests. */
+function assertOwnRequest(actor: Actor, doc: { createdById: string | null }) {
+  if (isStockRequester(actor.role) && doc.createdById !== actor.id) throw new ForbiddenError("Yalnız öz sorğunuzu dəyişə və ya ləğv edə bilərsiniz.");
+}
+
 async function assertDocScope(c: Tx | typeof db, actor: Actor, d: StockDocInput) {
   if (!actor.projectId) return;
   const site = await c.warehouse.findUnique({ where: { projectId: actor.projectId } });
   const msg = "Bu əməliyyat sizin layihənizin sahə anbarı ilə məhdudlaşır.";
-  if (!site || d.warehouseId !== site.id) throw new ForbiddenError(msg);
+  if (!site) throw new ForbiddenError(msg);
   if (d.kind === "TRANSFER") {
-    // a site may send its leftovers back to the office (a non-project warehouse), nothing else
-    const to = d.toWarehouseId ? await c.warehouse.findUnique({ where: { id: d.toWarehouseId } }) : null;
-    if (!to || to.projectId) throw new ForbiddenError("Sahədən yalnız ofis anbarına qaytarmaq olar. Başqa layihəyə göndərməni ofis edir.");
-  }
+    const [from, to] = await Promise.all([
+      c.warehouse.findUnique({ where: { id: d.warehouseId } }),
+      d.toWarehouseId ? c.warehouse.findUnique({ where: { id: d.toWarehouseId } }) : null,
+    ]);
+    if (d.warehouseId === site.id) {
+      // a site may send its leftovers back to the office (a non-project warehouse), nothing else
+      if (!to || to.projectId) throw new ForbiddenError("Sahədən yalnız ofis anbarına qaytarmaq olar. Başqa layihəyə göndərməni ofis edir.");
+    } else if (!(isStockRequester(actor.role) && to?.id === site.id && from && !from.projectId)) {
+      // a project manager may REQUEST material from the office to their own site
+      throw new ForbiddenError(msg);
+    }
+  } else if (d.warehouseId !== site.id) throw new ForbiddenError(msg);
   if (d.projectId && d.projectId !== actor.projectId) throw new ForbiddenError(msg);
   for (const l of d.lines) {
     if (l.targetWarehouseId && l.targetWarehouseId !== site.id) {
@@ -189,6 +211,7 @@ async function resolveEmployeeByName(actor: Actor, d: StockDocInput): Promise<St
 
 export async function createStockDoc(actor: Actor, input: StockDocInput) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
+  assertRequestKind(actor, input.kind);
   const d0 = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
   await validateHeader(db, d0);
   await assertDocScope(db, actor, d0);
@@ -233,6 +256,9 @@ export async function createStockDoc(actor: Actor, input: StockDocInput) {
 
 export async function updateStockDoc(actor: Actor, id: string, version: number, input: StockDocInput) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
+  assertRequestKind(actor, input.kind);
+  const own = await db.stockDocument.findUnique({ where: { id }, select: { createdById: true } });
+  if (own) assertOwnRequest(actor, own);
   const d0 = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
   await validateHeader(db, d0);
   await assertDocScope(db, actor, d0);
@@ -382,6 +408,8 @@ export async function postStockDoc(actor: Actor, id: string) {
 
 export async function cancelStockDoc(actor: Actor, id: string) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
+  const own = await db.stockDocument.findUnique({ where: { id }, select: { createdById: true } });
+  if (own) assertOwnRequest(actor, own);
   return withTx(async (tx) => {
     const r = await tx.stockDocument.updateMany({ where: { id, status: "DRAFT" }, data: { status: "CANCELLED", version: { increment: 1 } } });
     if (r.count === 0) throw new AppError("Yalnız qaralama sənəd ləğv edilə bilər.");
@@ -440,10 +468,10 @@ export async function reverseStockDoc(actor: Actor, id: string, reason: string) 
 export async function createAndPostStockDoc(actor: Actor, input: StockDocInput) {
   const postPerm = input.kind === "ADJUSTMENT" ? "adjustment.post" : "stockdoc.post";
   const doc = await createStockDoc(actor, input);
-  if (!can(actor.role, postPerm)) return { id: doc.id, number: doc.number, posted: false };
+  if (!can(actor.role, postPerm)) return { id: doc.id, number: doc.number, kind: doc.kind, posted: false };
   try {
     await postStockDoc(actor, doc.id);
-    return { id: doc.id, number: doc.number, posted: true };
+    return { id: doc.id, number: doc.number, kind: doc.kind, posted: true };
   } catch (e) {
     await withTx(async (tx) => {
       await tx.stockDocLine.deleteMany({ where: { docId: doc.id } });

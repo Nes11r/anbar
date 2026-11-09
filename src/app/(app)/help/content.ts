@@ -111,7 +111,7 @@ export const GUIDES: Guide[] = [
     title: "Rəhbər / Direktor",
     roles: ["DIRECTOR"],
     who: "Şirkətin rəhbəri. Bütün bölmələri görür, bütün təsdiqləri verə bilər. Sistem parametrləri (istifadəçilər, ehtiyat nüsxə) Super Admin-dədir.",
-    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Layihələr və sahələr", "Material tələbləri (MR)", "Satınalma sifarişləri (PO)", "Mal qəbulu (GRN)", "Hesabatlar", "Audit jurnalı"],
+    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Layihələr və sahələr", "Material tələbləri (MR)", "Satınalma sifarişləri (PO)", "Mal qəbulu (GRN)", "Layihələri idarə et", "Hesabatlar", "Audit jurnalı"],
     tasks: [
       {
         title: "Günün ümumi vəziyyətinə baxmaq",
@@ -139,6 +139,14 @@ export const GUIDES: Guide[] = [
         ],
       },
       {
+        title: "Yeni layihə açmaq",
+        steps: ["“Layihələri idarə et” → “+ Yeni layihə” (və ya “Layihələr və sahələr” → “+ Yeni layihə”).", "Layihə kodu, adı, sifarişçi (müştəri şirkət), layihə rəhbəri, başlama tarixi.", "Yadda saxlayan kimi layihənin sahə anbarı avtomatik açılır."],
+      },
+      {
+        title: "Layihəni bağlamaq",
+        steps: ["Layihədə “Düzəliş” → “Aktivdir” işarəsini götürün.", "Sahədə və ya işçilərdə material qalıbsa, sistem bağlamağa icazə vermir və nə qaldığını yazır.", "Əvvəlcə artığı ofisə qaytarın, işçilərdən geri alın və ya işçini başqa layihəyə keçirin."],
+      },
+      {
         title: "Hesabat və Excel",
         steps: [
           "“Hesabatlar”: layihələr üzrə verilən material, PPE (fəhlə / mühəndis), inventar fərqləri.",
@@ -147,7 +155,7 @@ export const GUIDES: Guide[] = [
         ],
       },
     ],
-    tips: ["Anbar müdirinin edə bildiyi hər şeyi siz də edə bilərsiniz (sənəd təsdiqi, ləğv, layihə və material əlavə etmək) — ayrıca “Anbar müdiri” bölməsinə baxın."],
+    tips: ["Layihə açmaq / bağlamaq və “Hesabatlar” bölməsi yalnız Rəhbər və Super Admin üçündür.", "Anbar müdirinin edə bildiyi hər şeyi siz də edə bilərsiniz (sənəd təsdiqi, ləğv, material əlavə etmək) — ayrıca “Anbar müdiri” bölməsinə baxın."],
     cannot: ["İstifadəçi hesablarını təsdiq etmək, rolları dəyişmək və sistem parametrləri — Super Admin edir."],
   },
   {
@@ -174,7 +182,7 @@ export const GUIDES: Guide[] = [
         title: "Hansı rol nə edir?",
         steps: [
           "Rəhbər / Direktor — hər şeyi görür və təsdiq edir (parametrlərdən başqa).",
-          "Anbar müdiri — anbar, sayım, düzəliş, ləğv, katalog, layihələr.",
+          "Anbar müdiri — anbar, sayım, düzəliş, ləğv, katalog.",
           "Anbardar — mal qəbulu, göndərmə, işçiyə təhvil. Layihəyə bağlanarsa — yalnız həmin sahədə işləyir.",
           "Satınalma — MR-ın son təsdiqi, sifarişlər (PO), ödəniş və yolda olma.",
           "Layihə rəhbəri — MR yazır və təsdiq edir, sahəyə baxır, gündəlik hesabat verir.",
@@ -200,8 +208,8 @@ export const GUIDES: Guide[] = [
     id: "anbar-muduru",
     title: "Anbar müdiri",
     roles: ["WAREHOUSE_MANAGER"],
-    who: "Anbarın sahibi. Qalığın düzgünlüyünə cavabdehdir: ilkin qalıq, sayım, düzəliş, ləğv, katalog, layihələr.",
-    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Sayım və ilkin qalıq", "Layihələr və sahələr", "Mədaxil / Məxaric", "Hərəkət jurnalı", "MR / PO / GRN", "Layihələri idarə et", "Hesabatlar", "Excel importu", "Audit jurnalı", "Parametrlər"],
+    who: "Anbarın sahibi. Qalığın düzgünlüyünə cavabdehdir: ilkin qalıq, sayım, düzəliş, ləğv, katalog.",
+    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Sayım və ilkin qalıq", "Layihələr və sahələr", "Mədaxil / Məxaric", "Hərəkət jurnalı", "MR / PO / GRN", "Excel importu", "Audit jurnalı", "Parametrlər"],
     tasks: [
       {
         title: "Yeni material əlavə etmək",
@@ -221,14 +229,6 @@ export const GUIDES: Guide[] = [
           "“Qaralama kimi saxla”, sonra sənəddə “Təsdiqlə və qalığa yaz”.",
         ],
         note: "İlkin qalıq yalnız heç bir hərəkəti olmayan material üçün bir dəfə yazılır. Sonrakı yoxlamalar “Dövri sayım” rejimi ilədir — fərq avtomatik düzəliş kimi yazılır.",
-      },
-      {
-        title: "Yeni layihə açmaq",
-        steps: ["“Layihələr və sahələr” → “+ Yeni layihə” (və ya “Layihələri idarə et”).", "Layihə kodu, adı, sifarişçi (müştəri şirkət), layihə rəhbəri, başlama tarixi.", "Yadda saxlayan kimi layihənin sahə anbarı avtomatik açılır."],
-      },
-      {
-        title: "Layihəni bağlamaq",
-        steps: ["Layihədə “Aktivdir” işarəsini götürün.", "Sahədə və ya işçilərdə material qalıbsa, sistem bağlamağa icazə vermir və nə qaldığını yazır.", "Əvvəlcə artığı ofisə qaytarın, işçilərdən geri alın və ya işçini başqa layihəyə keçirin."],
       },
       {
         title: "Sahə hesabatındakı fərqi düzəltmək",
@@ -257,7 +257,7 @@ export const GUIDES: Guide[] = [
         steps: ["Sahə səhifəsində işçinin adına basın.", "“Başqa layihəyə keçir / Fəhlə–Mühəndis dəyiş” bölməsini açın, yeni layihəni seçin.", "İşçinin üzərindəki əşyalar da yeni layihəyə keçir."],
       },
     ],
-    tips: ["Anbardarın etdiyi hər şeyi (qəbul, göndərmə, işçiyə təhvil) siz də edə bilərsiniz — “Anbardar” bölməsinə baxın."],
+    tips: ["Anbardarın etdiyi hər şeyi (qəbul, göndərmə, işçiyə təhvil, layihə rəhbərinin sorğusunu təsdiqləmək) siz də edə bilərsiniz — “Anbardar” bölməsinə baxın."],
     cannot: ["İstifadəçi hesabları və MR marşrutu — Super Admin.", "Sifariş (PO) yaratmaq — Satınalma."],
   },
   {
@@ -265,8 +265,17 @@ export const GUIDES: Guide[] = [
     title: "Anbardar",
     roles: ["STOREKEEPER"],
     who: "Gündəlik anbar işi: maldan qəbul, sahəyə göndərmə, işçiyə təhvil, sahədə istifadə, geri alma. Əgər hesabınız bir layihəyə bağlıdırsa (sahə anbardarı), yalnız həmin sahənin anbarında işləyirsiniz.",
-    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Sayım və ilkin qalıq", "Layihələr və sahələr", "Mədaxil / Məxaric", "Hərəkət jurnalı", "MR", "PO (baxış)", "Mal qəbulu (GRN)", "Hesabatlar"],
+    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Sayım və ilkin qalıq", "Layihələr və sahələr", "Mədaxil / Məxaric", "Hərəkət jurnalı", "MR", "PO (baxış)", "Mal qəbulu (GRN)"],
     tasks: [
+      {
+        title: "Layihə rəhbərinin sorğusunu təsdiqləmək",
+        steps: [
+          "Sorğu gələndə “İdarə paneli”ndə və “Mədaxil / Məxaric”də “… sorğu təsdiq gözləyir” xəbərdarlığı çıxır.",
+          "“Bax və təsdiqlə” → sorğunu açın: kim istəyib, hansı anbardan hara, hansı materiallar.",
+          "Hər şey düzgündürsə “Təsdiqlə” basın — qalıq bu anda dəyişir. Lazımdırsa əvvəl “Düzəliş” ilə miqdarı dəqiqləşdirin.",
+          "Verilməyəcəksə layihə rəhbəri ilə danışın — o, sorğunu ləğv edir (və ya siz silirsiniz).",
+        ],
+      },
       {
         title: "Tədarükçüdən gələn malı qəbul etmək",
         steps: [
@@ -341,8 +350,8 @@ export const GUIDES: Guide[] = [
     id: "layihe-rehberi",
     title: "Layihə rəhbəri",
     roles: ["PROJECT_MANAGER"],
-    who: "Layihənin ehtiyacına cavabdehdir: MR yazır və təsdiq edir, sahədə nə olduğunu izləyir, gündəlik hesabatı görür.",
-    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Layihələr və sahələr", "Mədaxil / Məxaric (baxış)", "Material tələbləri (MR)", "PO (baxış)", "Layihələri idarə et", "Hesabatlar"],
+    who: "Layihənin ehtiyacına cavabdehdir: anbardan material istəyir (sorğu), MR yazır və təsdiq edir, sahədə nə olduğunu izləyir, gündəlik hesabatı görür.",
+    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Layihələr və sahələr", "Mədaxil / Məxaric (sorğu)", "Material tələbləri (MR)", "PO (baxış)"],
     tasks: [
       {
         title: "Sahədə nə var — yoxlamaq",
@@ -351,6 +360,16 @@ export const GUIDES: Guide[] = [
           "Yuxarıda: sahədə cəmi, işçilərdə, stokda. Aşağıda material üzrə cədvəl və “Kimdə nə var (işçilər üzrə)”.",
           "Yeni tələb gəlməmişdən əvvəl buraya baxın — sahədə artıq varsa, almağa ehtiyac yoxdur.",
         ],
+      },
+      {
+        title: "Anbardan material istəmək (sorğu)",
+        steps: [
+          "Sahə səhifəsində “Ofisdən material istə” (və ya “Mədaxil / Məxaric” → “+ Sahəyə göndər”).",
+          "Haradan (ofis anbarı) və hansı layihəyə — öz layihənizin sahəsi seçilir. Daşıyan şəxsi yazın.",
+          "Materialları və miqdarı seçin → “Təsdiqə göndər”.",
+          "Sorğu anbardara gedir. Anbardar və ya anbar müdiri “Təsdiqlə” basanda material sahə anbarına keçir.",
+        ],
+        note: "Eyni qayda ilə “Sahədə istifadə (sərf)”, “İşçiyə təhvil” və geri qaytarma sorğusu da yarada bilərsiniz — hamısını anbar təsdiqləyir. Təsdiqə qədər öz sorğunuzu dəyişə və ya “Sorğunu ləğv et” edə bilərsiniz.",
       },
       {
         title: "MR yazmaq (material sifarişi istəmək)",
@@ -375,19 +394,15 @@ export const GUIDES: Guide[] = [
         title: "Gündəlik hesabatı vermək / baxmaq",
         steps: ["Sahə səhifəsində “+ Gündəlik hesabat”.", "Hər material üçün stokda və işçilərdə sayılanı yazın → “Hesabatı saxla”.", "Keçmiş hesabatlar sahə səhifəsində “Son gündəlik hesabatlar” kartındadır."],
       },
-      {
-        title: "Layihə yaratmaq / dəyişmək",
-        steps: ["“Layihələri idarə et” → “+ Yeni layihə” və ya layihəni açıb “Düzəliş”.", "Sahə anbarı avtomatik açılır."],
-      },
     ],
-    cannot: ["Anbardan material çıxarmaq, göndərmək, işçiyə vermək — anbardar edir.", "Sifariş (PO) yaratmaq — Satınalma."],
+    cannot: ["Layihə yaratmaq, dəyişmək və ya bağlamaq — Rəhbər / Super Admin edir.", "“Hesabatlar” bölməsi — yalnız Rəhbər / Super Admin.", "Öz sorğunuzu təsdiqləmək — anbardar və ya anbar müdiri təsdiqləyir.", "Qalıq düzəlişi və tədarükçüyə qaytarma — anbar müdiri.", "Sifariş (PO) yaratmaq — Satınalma."],
   },
   {
     id: "satinalma",
     title: "Satınalma",
     roles: ["PROCUREMENT"],
     who: "Təsdiqlənmiş MR-lardan sifariş (PO) yaradır, tədarükçü ilə işləyir, ödəniş və çatdırılmanı izləyir.",
-    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Layihələr və sahələr", "Material tələbləri (MR)", "Satınalma sifarişləri (PO)", "Mal qəbulu (GRN) (baxış)", "Hesabatlar"],
+    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Layihələr və sahələr", "Material tələbləri (MR)", "Satınalma sifarişləri (PO)", "Mal qəbulu (GRN) (baxış)"],
     tasks: [
       {
         title: "MR-ı son təsdiqləmək",
@@ -421,8 +436,8 @@ export const GUIDES: Guide[] = [
     id: "auditor",
     title: "Oxucu / Auditor",
     roles: ["AUDITOR", "EMPLOYEE"],
-    who: "Hər şeyə baxır, heç nəyi dəyişmir. Yoxlama, hesabat və nəzarət üçün.",
-    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Sayım və ilkin qalıq", "Layihələr və sahələr", "Mədaxil / Məxaric", "Hərəkət jurnalı", "MR / PO / GRN", "Hesabatlar", "Audit jurnalı"],
+    who: "Hər şeyə baxır, heç nəyi dəyişmir. Yoxlama və nəzarət üçün.",
+    menu: ["İdarə paneli", "Material kataloqu", "Anbar qalığı", "Sayım və ilkin qalıq", "Layihələr və sahələr", "Mədaxil / Məxaric", "Hərəkət jurnalı", "MR / PO / GRN", "Audit jurnalı"],
     tasks: [
       {
         title: "Bir materialın tarixçəsini yoxlamaq",
@@ -431,10 +446,6 @@ export const GUIDES: Guide[] = [
       {
         title: "Kim nəyi dəyişib",
         steps: ["“Audit jurnalı”: hər yaradılma, dəyişiklik, təsdiq və ləğv — istifadəçi və vaxtla.", "“Hərəkət jurnalı”: anbar qalığına təsir edən bütün yazılar."],
-      },
-      {
-        title: "Hesabatlar",
-        steps: ["“Hesabatlar”: layihələr üzrə, PPE (fəhlə / mühəndis), inventar fərqləri.", "Hər birini Excel və ya “Çap / PDF” ilə çıxarın."],
       },
     ],
     cannot: ["Heç bir sənəd yaratmaq, təsdiqləmək və ya dəyişmək."],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, isLeadership, NO_PROJECT, PERMISSIONS, scopeProjectId, type Permission } from "@/lib/rbac";
+import { can, isLeadership, NO_PROJECT, PERMISSIONS, rolesWith, scopeProjectId, type Permission } from "@/lib/rbac";
 
 describe("roles", () => {
   it("Director has every business permission of Super Admin, but no system administration", () => {
@@ -23,5 +23,10 @@ describe("roles", () => {
     for (const p of Object.keys(PERMISSIONS) as Permission[]) expect(can("CLIENT", p), p).toBe(false);
     expect(scopeProjectId({ role: "CLIENT", projectId: "p1" })).toBe(NO_PROJECT);
     expect(scopeProjectId({ role: "WAREHOUSE_MANAGER", projectId: null })).toBe(null);
+  });
+  it("projects are created / edited and analytics are seen only by Super Admin and Director", () => {
+    for (const p of ["project.manage", "report.view"] as Permission[]) {
+      expect(rolesWith(p).sort(), p).toEqual(["DIRECTOR", "SUPER_ADMIN"]);
+    }
   });
 });

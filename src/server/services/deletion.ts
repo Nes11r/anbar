@@ -23,7 +23,7 @@ const PERM: Record<DeletableType, Permission> = {
   material: "catalog.manage",
   variant: "catalog.manage",
   inventoryCount: "inventory.edit",
-  stockDocument: "stockdoc.edit",
+  stockDocument: "stockdoc.post",
   goodsReceipt: "grn.edit",
   purchaseOrder: "po.manage",
   materialRequest: "mr.create",
