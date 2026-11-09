@@ -1,11 +1,17 @@
 "use server";
 import { runAction } from "@/lib/action";
-import { cancelStockDoc, createStockDoc, postStockDoc, reverseStockDoc, updateStockDoc, type StockDocInput } from "@/server/services/stockdocs";
+import { cancelStockDoc, createAndPostStockDoc, createStockDoc, postStockDoc, reverseStockDoc, siteRedirectFor, updateStockDoc, type StockDocInput } from "@/server/services/stockdocs";
 
 const R = ["/movements", "/stock", "/projects", "/employees", "/"];
 
 export async function createStockDocAction(input: StockDocInput) {
   return runAction("stockdoc.edit", (a) => createStockDoc(a, input).then((d) => ({ id: d.id, number: d.number })), { revalidate: ["/movements"], message: (r) => `Qaralama yaradıldı: ${r.number}` });
+}
+export async function createAndPostStockDocAction(input: StockDocInput) {
+  return runAction("stockdoc.edit", async (a) => {
+    const r = await createAndPostStockDoc(a, input);
+    return { ...r, redirect: r.posted ? await siteRedirectFor(r.id) : `/movements/${r.id}` };
+  }, { revalidate: R, message: (r) => (r.posted ? `Təsdiqləndi: ${r.number}. Qalıq yeniləndi.` : `${r.number} saxlanıldı — təsdiqi anbar müdiri edəcək.`) });
 }
 export async function updateStockDocAction(id: string, version: number, input: StockDocInput) {
   return runAction("stockdoc.edit", (a) => updateStockDoc(a, id, version, input).then(() => ({ id })), { revalidate: ["/movements"], message: "Qaralama yeniləndi" });

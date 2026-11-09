@@ -94,6 +94,11 @@ export function MaterialForm({
           <input className="input" value={f.nameEn ?? ""} onChange={(e) => set("nameEn", e.target.value)} maxLength={300} />
         </label>
         <label className="label">
+          <span>Material kodu</span>
+          <input className="input font-mono" value={f.code ?? ""} onChange={(e) => set("code", e.target.value.toUpperCase())} disabled={!!id} aria-invalid={!!errors.code} maxLength={40} placeholder={id ? "" : "məs. FSO-001 (boş qalsa avtomatik)"} />
+          {errors.code ? <span className="field-err">{errors.code}</span> : <span className="text-[11px] font-normal text-muted">{id ? "Kod yaradıldıqdan sonra dəyişmir." : "Materialın öz kodunu yazın; boş qoysanız sistem verəcək."}</span>}
+        </label>
+        <label className="label">
           <span className="req">Kateqoriya</span>
           <select className="select" value={f.categoryId ?? ""} onChange={(e) => onCategory(e.target.value)} aria-invalid={!!errors.categoryId}>
             <option value="">— seçin —</option>

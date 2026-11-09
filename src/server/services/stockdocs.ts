@@ -383,3 +383,35 @@ export async function reverseStockDoc(actor: Actor, id: string, reason: string) 
     return rev;
   });
 }
+
+/**
+ * One-step "Təsdiqlə": create and post in one go. If posting fails (e.g. not enough stock) the draft
+ * is discarded, so nothing half-done stays behind and the user simply corrects the form.
+ * Users who may create but not post (e.g. adjustments by a storekeeper) get a draft for approval.
+ */
+export async function createAndPostStockDoc(actor: Actor, input: StockDocInput) {
+  const postPerm = input.kind === "ADJUSTMENT" ? "adjustment.post" : "stockdoc.post";
+  const doc = await createStockDoc(actor, input);
+  if (!can(actor.role, postPerm)) return { id: doc.id, number: doc.number, posted: false };
+  try {
+    await postStockDoc(actor, doc.id);
+    return { id: doc.id, number: doc.number, posted: true };
+  } catch (e) {
+    await withTx(async (tx) => {
+      await tx.stockDocLine.deleteMany({ where: { docId: doc.id } });
+      await tx.stockDocument.deleteMany({ where: { id: doc.id, status: "DRAFT" } });
+      await audit(tx, actor, "DISCARD", "StockDocument", doc.id, `${doc.number} təsdiqlənmədi və silindi: ${(e as Error).message}`.slice(0, 900));
+    });
+    throw e;
+  }
+}
+
+/** Where to go after a one-step post: the site page if a project site warehouse is involved. */
+export async function siteRedirectFor(docId: string): Promise<string> {
+  const d = await db.stockDocument.findUnique({ where: { id: docId } });
+  if (!d) return "/movements";
+  const ids = [d.toWarehouseId, d.warehouseId].filter((x): x is string => !!x);
+  const site = await db.warehouse.findFirst({ where: { id: { in: ids }, projectId: { not: null } }, orderBy: { createdAt: "asc" } });
+  const pick = d.toWarehouseId && site?.id === d.toWarehouseId ? site : site;
+  return pick?.projectId ? `/sites/${pick.projectId}` : `/movements/${docId}`;
+}

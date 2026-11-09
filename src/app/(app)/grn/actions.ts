@@ -1,10 +1,16 @@
 "use server";
 import { runAction } from "@/lib/action";
-import { cancelGRN, createGRN, postGRN, reverseGRN, type GRNInput } from "@/server/services/procurement";
+import { cancelGRN, createAndPostGRN, createGRN, postGRN, reverseGRN, type GRNInput } from "@/server/services/procurement";
 
 const R = ["/grn", "/po", "/mr", "/stock", "/"];
 export async function createGRNAction(input: GRNInput) {
   return runAction("grn.edit", (a) => createGRN(a, input).then((g) => ({ id: g.id, grnNumber: g.grnNumber })), { revalidate: ["/grn"], message: (r) => `GRN qaralaması: ${r.grnNumber}` });
+}
+export async function createAndPostGRNAction(input: GRNInput) {
+  return runAction("grn.edit", (a) => createAndPostGRN(a, input).then((g) => ({ ...g, redirect: `/grn/${g.id}` })), {
+    revalidate: R,
+    message: (g) => (g.posted ? `Qəbul təsdiqləndi: ${g.grnNumber}. Mal anbara mədaxil edildi.` : `${g.grnNumber} saxlanıldı — təsdiq gözləyir.`),
+  });
 }
 export async function postGRNAction(id: string) {
   return runAction("grn.post", (a) => postGRN(a, id), { revalidate: R, message: (r) => (r.alreadyPosted ? "GRN artıq təsdiqlənib — ikinci dəfə mədaxil edilmədi." : "GRN təsdiqləndi: mal avtomatik anbara mədaxil edildi.") });

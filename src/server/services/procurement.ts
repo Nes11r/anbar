@@ -699,3 +699,20 @@ export async function setPOShipment(actor: Actor, id: string, input: { carrier?:
     return { ok: true };
   });
 }
+
+/** One-step goods receipt: create and post; on failure nothing stays behind. */
+export async function createAndPostGRN(actor: Actor, input: GRNInput) {
+  const grn = await createGRN(actor, input);
+  if (!can(actor.role, "grn.post")) return { id: grn.id, grnNumber: grn.grnNumber, posted: false };
+  try {
+    await postGRN(actor, grn.id);
+    return { id: grn.id, grnNumber: grn.grnNumber, posted: true };
+  } catch (e) {
+    await withTx(async (tx) => {
+      await tx.gRNLine.deleteMany({ where: { grnId: grn.id } });
+      await tx.goodsReceipt.deleteMany({ where: { id: grn.id, status: "DRAFT" } });
+      await audit(tx, actor, "DISCARD", "GoodsReceipt", grn.id, `${grn.grnNumber} təsdiqlənmədi və silindi: ${(e as Error).message}`.slice(0, 900));
+    });
+    throw e;
+  }
+}

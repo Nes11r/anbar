@@ -71,12 +71,10 @@ test.describe.serial("critical journey", () => {
     await page.getByLabel("Təhvil alan").fill("Usta Test");
     await pickVariant(page, 0, "E2E", /42/);
     await page.getByLabel("Miqdar 1").fill("3");
-    await page.getByRole("button", { name: "Qaralama kimi saxla" }).click();
+    // one-step: "Təsdiqlə" creates and posts immediately (button disables while pending)
+    await page.getByRole("button", { name: "Təsdiqlə", exact: true }).click();
+    await expect(page.getByText(/Təsdiqləndi: ISP-.*Qalıq yeniləndi\./)).toBeVisible();
     await expect(page.getByRole("heading", { name: /Layihəyə məxaric ISP-/ })).toBeVisible();
-    // double-click on post is harmless (button disables; server idempotent)
-    await page.getByRole("button", { name: "Təsdiqlə" }).click();
-    await page.getByRole("button", { name: "Təsdiq et" }).dblclick();
-    await expect(page.getByText("Təsdiqləndi, qalıq yeniləndi.")).toBeVisible();
 
     // Stock = 7 everywhere, survives reload
     await page.goto("/stock?q=E2E");
@@ -220,12 +218,10 @@ test("site: office → site transfer shows up as site stock; daily report record
   await box.fill("E2E");
   await page.getByRole("option", { name: /42/ }).first().click();
   await page.getByLabel("Miqdar 1").fill("2");
-  await page.getByRole("button", { name: "Qaralama kimi saxla" }).click();
-  await page.getByRole("button", { name: "Təsdiqlə" }).click();
-  await page.getByRole("button", { name: "Təsdiq et" }).click();
-  await expect(page.getByText("Təsdiqləndi, qalıq yeniləndi.")).toBeVisible();
-  await page.goto("/sites");
-  await page.getByRole("link", { name: /E2E01/ }).first().click();
+  await page.getByRole("button", { name: "Təsdiqlə", exact: true }).click();
+  // posts immediately and lands on the site warehouse page
+  await expect(page.getByText(/Təsdiqləndi: .*Qalıq yeniləndi\./)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Sahə: E2E01/ })).toBeVisible();
   await expect(page.locator(".card", { hasText: "Sahə anbarında stokda" })).toContainText("2");
   await page.getByRole("link", { name: "+ Gündəlik hesabat" }).click();
   await page.getByLabel(/stokda$/).first().fill("1");

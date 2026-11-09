@@ -8,7 +8,7 @@ import { saveEmployee, saveProject } from "@/server/services/masterdata";
 import { createGRN, createMR, createPO, decideMR, postGRN, setPOPayment, setPOShipment, setPOStatus, submitMR } from "@/server/services/procurement";
 import { registerAccount } from "@/server/services/registration";
 import { createSiteReport, siteMaterials, siteOverview, siteReportToCount, siteWorkerHoldings } from "@/server/services/sites";
-import { createStockDoc, postStockDoc } from "@/server/services/stockdocs";
+import { createAndPostStockDoc, createStockDoc, postStockDoc, siteRedirectFor } from "@/server/services/stockdocs";
 import { mrTimeline, currentStageLabel } from "@/server/services/tracking";
 import { baseData, makeUser, resetDb } from "./helpers";
 
@@ -94,6 +94,20 @@ describe("Sahə anbarları", () => {
     await postStockDoc(siteKeeper, ok.id);
     await expect(createSiteReport(siteKeeper, { projectId: (await db.project.findFirstOrThrow({ where: { code: "BKU" } })).id, reportDate: today, reportedBy: "X Y", lines: [{ variantId: v.id, stockQty: 0, withWorkersQty: 0 }] })).rejects.toThrow(/səlahiyyət dairənizdə/);
     void pm;
+  });
+});
+
+describe("Bir addımda təsdiq (Təsdiqlə)", () => {
+  it("ofisdən layihəyə göndərmə dərhal yazılır və sahə səhifəsinə yönləndirir; qalıq çatmasa heç nə qalmır", async () => {
+    const { project, site, v } = await setup();
+    const ok = await createAndPostStockDoc(wm, { kind: "TRANSFER", warehouseId: B.wh.id, toWarehouseId: site.id, recipientName: "Sürücü", docDate: today, lines: [{ variantId: v.id, qty: 4, direction: -1 }] } as never);
+    expect(ok.posted).toBe(true);
+    expect(await siteRedirectFor(ok.id)).toBe(`/sites/${project.id}`);
+    const bal = await db.stockBalance.findFirst({ where: { warehouseId: site.id, variantId: v.id } });
+    expect(Number(bal?.onHand)).toBe(4);
+    const before = await db.stockDocument.count();
+    await expect(createAndPostStockDoc(wm, { kind: "TRANSFER", warehouseId: B.wh.id, toWarehouseId: site.id, recipientName: "Sürücü", docDate: today, lines: [{ variantId: v.id, qty: 999, direction: -1 }] } as never)).rejects.toThrow();
+    expect(await db.stockDocument.count()).toBe(before);
   });
 });
 

@@ -80,6 +80,9 @@ export async function createMaterial(actor: Actor, input: MaterialInput, provena
   const run = async (tx: Tx) => {
     const cat = await validateMaterial(tx, d);
     const code = d.code?.trim() ? d.code.trim().toUpperCase() : await generateMaterialCode(tx, cat.code);
+    if (d.code?.trim() && (await tx.material.findUnique({ where: { code }, select: { id: true } }))) {
+      throw new AppError(`“${code}” kodu artıq başqa materialda var.`, "VALIDATION", { code: "Bu kod artıq istifadə olunur" });
+    }
     const m = await tx.material.create({
       data: {
         code,

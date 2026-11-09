@@ -6,7 +6,7 @@ import { LinesEditor, newLine, type EditorLine } from "@/components/client/lines
 import { useToast } from "@/components/client/toast";
 import { todayIso } from "@/lib/format";
 import type { StockDocInput } from "@/server/services/stockdocs";
-import { createStockDocAction, updateStockDocAction } from "./actions";
+import { createAndPostStockDocAction, updateStockDocAction } from "./actions";
 
 type Kind = StockDocInput["kind"];
 export interface StockDocOptions {
@@ -45,17 +45,29 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
   const router = useRouter();
   const set = (k: keyof StockDocInitial, v: string | null) => setH((x) => ({ ...x, [k]: v }));
   const emp = useMemo(() => options.employees.find((e) => e.id === h.employeeId), [options.employees, h.employeeId]);
-  const srcWarehouses = kind === "TRANSFER" || kind === "ADJUSTMENT" || kind === "RETURN_TO_SUPPLIER" ? options.warehouses : normal;
+  const projectLabel = (pid: string) => options.projects.find((p) => p.id === pid)?.label;
+  const siteTargets = options.warehouses
+    .filter((w) => w.projectId && w.id !== h.warehouseId)
+    .map((w) => ({ id: w.id, label: projectLabel(w.projectId!) ?? w.name }))
+    .sort((a, b) => a.label.localeCompare(b.label, "az"));
+  const otherTargets = options.warehouses.filter((w) => !w.projectId && w.id !== h.warehouseId);
+  const srcWarehouses =kind === "TRANSFER" || kind === "ADJUSTMENT" || kind === "RETURN_TO_SUPPLIER" ? options.warehouses : normal;
 
   const submit = () => {
     const filled = lines.filter((l) => l.variant);
     if (!filled.length) { toast("bad", "Ən azı bir material seçin."); return; }
     if (filled.some((l) => !(Number(l.qty) > 0))) { toast("bad", "Hər sətirdə miqdar 0-dan böyük olmalıdır."); return; }
+    if (kind === "TRANSFER") {
+      const errs: Record<string, string> = {};
+      if (!h.toWarehouseId) errs.toWarehouseId = "Hansı layihəyə (anbara) göndərildiyini seçin";
+      if (!h.recipientName?.trim()) errs.recipientName = "Daşıyan şəxsi yazın";
+      if (Object.keys(errs).length) { setErrors(errs); toast("bad", Object.values(errs)[0]); return; }
+    }
     const payload: StockDocInput = {
       kind,
       warehouseId: h.warehouseId,
       toWarehouseId: kind === "TRANSFER" ? h.toWarehouseId ?? null : null,
-      projectId: h.projectId || null,
+      projectId: kind === "TRANSFER" ? null : h.projectId || null,
       employeeId: h.employeeId || null,
       supplierId: h.supplierId || null,
       recipientName: h.recipientName || null,
@@ -67,8 +79,13 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
       lines: filled.map((l) => ({ variantId: l.variant!.id, qty: Number(l.qty), direction: (l.direction === 1 ? 1 : -1) as 1 | -1, condition: l.condition ?? null, targetWarehouseId: l.condition === "DEFECTIVE" ? l.targetWarehouseId ?? quarantine[0]?.id ?? null : null, overrideReason: l.overrideReason || null, note: l.note || null })),
     };
     start(async () => {
-      const r = id ? await updateStockDocAction(id, version!, payload) : await createStockDocAction(payload);
-      if (r.ok) { toast("ok", r.message!); router.push(`/movements/${(r.data as { id: string }).id}`); router.refresh(); }
+      const r = id ? await updateStockDocAction(id, version!, payload) : await createAndPostStockDocAction(payload);
+      if (r.ok) {
+        const d = r.data as { id: string; redirect?: string };
+        toast("ok", r.message!);
+        router.push(d.redirect ?? `/movements/${d.id}`);
+        router.refresh();
+      }
       else { setErrors(r.fieldErrors ?? {}); toast("bad", r.error); }
     });
   };
@@ -83,11 +100,19 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
           </select>
         </label>
         {kind === "TRANSFER" && (
-          <label className="label"><span className="req">Hara (təyinat anbar)</span>
-            <select className="select" value={h.toWarehouseId ?? ""} onChange={(e) => set("toWarehouseId", e.target.value)}>
-              <option value="">— seçin —</option>
-              {options.warehouses.filter((w) => w.id !== h.warehouseId).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          <label className="label md:col-span-2"><span className="req">Hansı layihəyə göndərilir</span>
+            <select className="select" value={h.toWarehouseId ?? ""} onChange={(e) => set("toWarehouseId", e.target.value)} aria-invalid={!!errors.toWarehouseId}>
+              <option value="">— layihəni seçin —</option>
+              <optgroup label="Layihənin sahə anbarı">
+                {siteTargets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </optgroup>
+              {otherTargets.length > 0 && (
+                <optgroup label="Digər anbarlar">
+                  {otherTargets.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </optgroup>
+              )}
             </select>
+            {errors.toWarehouseId && <span className="field-err">{errors.toWarehouseId}</span>}
           </label>
         )}
         {(kind === "ISSUE_PROJECT" || kind === "RETURN_FROM_PROJECT") && (
@@ -124,13 +149,11 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
         )}
         <label className="label"><span className="req">Tarix</span><input className="input" type="date" value={h.docDate} max={todayIso()} onChange={(e) => set("docDate", e.target.value)} /></label>
         {(kind === "ISSUE_PROJECT" || kind === "ISSUE_EMPLOYEE" || kind === "TRANSFER") && (
-          <label className="label"><span className={kind === "ISSUE_PROJECT" ? "req" : undefined}>{kind === "TRANSFER" ? "Daşıyan şəxs" : "Təhvil alan"}</span><input className="input" value={h.recipientName ?? ""} onChange={(e) => set("recipientName", e.target.value)} aria-invalid={!!errors.recipientName} /></label>
+          <label className="label"><span className={kind === "ISSUE_PROJECT" || kind === "TRANSFER" ? "req" : undefined}>{kind === "TRANSFER" ? "Daşıyan şəxs" : "Təhvil alan"}</span><input className="input" value={h.recipientName ?? ""} onChange={(e) => set("recipientName", e.target.value)} aria-invalid={!!errors.recipientName} placeholder={kind === "TRANSFER" ? "Ad, soyad" : undefined} />{errors.recipientName && <span className="field-err">{errors.recipientName}</span>}</label>
         )}
-        {kind !== "ADJUSTMENT" && <label className="label"><span>Məqsəd</span><input className="input" value={h.purpose ?? ""} onChange={(e) => set("purpose", e.target.value)} /></label>}
         {(kind === "ADJUSTMENT" || kind.startsWith("RETURN")) && (
           <label className="label md:col-span-2"><span className={kind === "ADJUSTMENT" ? "req" : undefined}>Səbəb</span><input className="input" value={h.reason ?? ""} onChange={(e) => set("reason", e.target.value)} aria-invalid={!!errors.reason} placeholder={kind === "ADJUSTMENT" ? "məs. zədələnmə, itki, sayım fərqi" : ""} /></label>
         )}
-        <label className="label"><span>Xarici sənəd №</span><input className="input" value={h.externalRef ?? ""} onChange={(e) => set("externalRef", e.target.value)} /></label>
         <label className="label md:col-span-4"><span>Qeyd</span><input className="input" value={h.notes ?? ""} onChange={(e) => set("notes", e.target.value)} /></label>
       </section>
       <section className="card p-4">
@@ -149,10 +172,12 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
         />
       </section>
       <div className="flex gap-2">
-        <button className="btn btn-primary" disabled={pending}>{pending ? "Yadda saxlanılır…" : "Qaralama kimi saxla"}</button>
+        <button className="btn btn-primary" disabled={pending}>{pending ? "Təsdiqlənir…" : id ? "Dəyişiklikləri saxla" : "Təsdiqlə"}</button>
         <button type="button" className="btn" onClick={() => router.back()}>İmtina</button>
       </div>
-      <p className="text-xs text-muted">Qaralama qalığı dəyişmir. Təsdiq zamanı qalıq serverdə yenidən yoxlanılır və atomik şəkildə yazılır.</p>
+      <p className="text-xs text-muted">
+        {id ? "Bu qaralamadır — saxladıqdan sonra sənəd səhifəsində “Təsdiqlə” düyməsini basın." : kind === "TRANSFER" ? "“Təsdiqlə” basanda materiallar dərhal seçilən layihənin sahə anbarına keçir və sahə anbarı səhifəsi açılır." : "“Təsdiqlə” basanda qalıq dərhal yenilənir. Səhv olarsa, sənəd səhifəsindən ləğv edə bilərsiniz."}
+      </p>
     </form>
   );
 }

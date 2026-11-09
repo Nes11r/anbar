@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useToast } from "@/components/client/toast";
 import { todayIso } from "@/lib/format";
-import { createGRNAction } from "./actions";
+import { createAndPostGRNAction } from "./actions";
 
 export interface GRNLineInfo { poLineId: string; lineNo: number; label: string; unit: string; ordered: number; received: number }
 
@@ -23,7 +23,7 @@ export function GRNForm({ poId, poNumber, warehouses, defaultWarehouseId, lines,
 
   const submit = () => {
     start(async () => {
-      const r = await createGRNAction({
+      const r = await createAndPostGRNAction({
         poId, warehouseId: wh, receivedDate: new Date(date), receiverName: recv, deliveryNoteNo: dn || null, notes: notes || null,
         lines: lines.map((l) => ({ poLineId: l.poLineId, qtyReceived: Number(vals[l.poLineId].q) || 0, qtyRejected: Number(vals[l.poLineId].rej) || 0, qualityStatus: vals[l.poLineId].qs, note: vals[l.poLineId].note || null })),
       } as never);
@@ -69,7 +69,7 @@ export function GRNForm({ poId, poNumber, warehouses, defaultWarehouseId, lines,
         </div>
       </section>
       <div className="flex gap-2">
-        <button className="btn btn-primary" disabled={pending}>{pending ? "Yadda saxlanılır…" : "Qaralama kimi saxla"}</button>
+        <button className="btn btn-primary" disabled={pending}>{pending ? "Qəbul edilir…" : "Qəbul et və təsdiqlə"}</button>
         <button type="button" className="btn" onClick={() => router.back()}>İmtina</button>
       </div>
     </form>
