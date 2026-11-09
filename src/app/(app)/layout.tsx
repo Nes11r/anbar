@@ -23,7 +23,6 @@ const NAV: { href: string; label: string; perm: Permission; icon: string; group?
   { href: "/po", label: az.nav.po, perm: "po.view", icon: "M3 3h2l2 12h11l2-8H6M9 20a1 1 0 100-2 1 1 0 000 2zM17 20a1 1 0 100-2 1 1 0 000 2z", group: "Satınalma" },
   { href: "/grn", label: az.nav.grn, perm: "grn.view", icon: "M3 7h11v10H3zM14 10h4l3 3v4h-7M7 20a2 2 0 100-4 2 2 0 000 4zM17 20a2 2 0 100-4 2 2 0 000 4z", group: "Satınalma" },
   { href: "/projects", label: az.nav.projects, perm: "project.view", icon: "M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6", group: "Layihə" },
-  { href: "/employees", label: az.nav.employees, perm: "employee.view", icon: "M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0", group: "Layihə" },
   { href: "/reports", label: az.nav.reports, perm: "report.view", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2", group: "Analiz" },
   { href: "/import", label: az.nav.import, perm: "import.run", icon: "M12 3v12M7 10l5 5 5-5M4 21h16", group: "Sistem" },
   { href: "/audit", label: az.nav.audit, perm: "audit.view", icon: "M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z", group: "Sistem" },

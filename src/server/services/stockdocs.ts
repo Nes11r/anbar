@@ -34,6 +34,9 @@ export const stockDocSchema = z.object({
   toWarehouseId: z.string().uuid().optional().nullable(),
   projectId: z.string().uuid().optional().nullable(),
   employeeId: z.string().uuid().optional().nullable(),
+  /** Issue to a worker by typing the name: matched to an existing worker of the project or created on the fly. */
+  employeeName: z.string().trim().max(200).optional().nullable(),
+  employeeGroup: z.enum(["ENGINEER", "WORKER"]).optional().nullable(),
   supplierId: z.string().uuid().optional().nullable(),
   recipientName: z.string().trim().max(200).optional().nullable(),
   purpose: z.string().trim().max(500).optional().nullable(),
@@ -67,7 +70,7 @@ async function validateHeader(c: Tx | typeof db, d: StockDocInput) {
     }
     case "ISSUE_EMPLOYEE":
     case "RETURN_FROM_EMPLOYEE": {
-      if (!d.employeeId) throw new AppError("İşçi seçilməyib.", "VALIDATION", { employeeId: "İşçi seçin" });
+      if (!d.employeeId) throw new AppError(d.kind === "ISSUE_EMPLOYEE" ? "İşçinin adını və soyadını yazın." : "İşçi seçilməyib.", "VALIDATION", d.kind === "ISSUE_EMPLOYEE" ? { employeeName: "Ad və soyad yazın" } : { employeeId: "İşçi seçin" });
       const e = await c.employee.findUnique({ where: { id: d.employeeId } });
       if (!e) throw new NotFoundError("İşçi");
       if (d.kind === "ISSUE_EMPLOYEE" && !e.isActive) throw new AppError("Deaktiv işçiyə material verilə bilməz.", "VALIDATION");
@@ -143,9 +146,40 @@ async function checkGroupCompatibility(c: Tx | typeof db, actor: Actor, d: Stock
   }
 }
 
+const normName = (s: string) => s.replace(/\s+/g, " ").trim();
+
+/**
+ * There is no separate worker registry in the UI: the storekeeper just types the worker's full name
+ * when handing out material. We match it (case-insensitive) to a worker of the same project, or create
+ * one quietly, so "who holds what" keeps working.
+ */
+async function resolveEmployeeByName(actor: Actor, d: StockDocInput): Promise<StockDocInput> {
+  if (d.kind !== "ISSUE_EMPLOYEE" || d.employeeId || !d.employeeName) return d;
+  const fullName = normName(d.employeeName);
+  if (fullName.length < 3) throw new AppError("İşçinin adını və soyadını yazın.", "VALIDATION", { employeeName: "Ad və soyad yazın" });
+  const wh = await db.warehouse.findUnique({ where: { id: d.warehouseId }, select: { projectId: true } });
+  const projectId = d.projectId ?? wh?.projectId ?? actor.projectId ?? null;
+  const found = await db.employee.findFirst({ where: { fullName: { equals: fullName, mode: "insensitive" }, projectId, isActive: true }, orderBy: { createdAt: "asc" } });
+  if (found) return { ...d, employeeId: found.id, projectId: d.projectId ?? found.projectId };
+  for (let i = 0; i < 5; i++) {
+    const code = `W-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    try {
+      const e = await withTx(async (tx) => {
+        const e = await tx.employee.create({ data: { code, fullName, group: d.employeeGroup ?? "WORKER", projectId } });
+        await audit(tx, actor, "CREATE", "Employee", e.id, `${fullName} (material təhvili zamanı)`);
+        return e;
+      });
+      return { ...d, employeeId: e.id, projectId: d.projectId ?? projectId };
+    } catch (err) {
+      if ((err as { code?: string }).code !== "P2002") throw err;
+    }
+  }
+  throw new AppError("İşçi qeydi yaradıla bilmədi, yenidən cəhd edin.", "CONFLICT");
+}
+
 export async function createStockDoc(actor: Actor, input: StockDocInput) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
-  const d = stockDocSchema.parse(input);
+  const d = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
   await validateHeader(db, d);
   await assertDocScope(db, actor, d);
   await checkGroupCompatibility(db, actor, d);
@@ -189,7 +223,7 @@ export async function createStockDoc(actor: Actor, input: StockDocInput) {
 
 export async function updateStockDoc(actor: Actor, id: string, version: number, input: StockDocInput) {
   if (!can(actor.role, "stockdoc.edit")) throw new ForbiddenError();
-  const d = stockDocSchema.parse(input);
+  const d = await resolveEmployeeByName(actor, stockDocSchema.parse(input));
   await validateHeader(db, d);
   await assertDocScope(db, actor, d);
   await checkGroupCompatibility(db, actor, d);

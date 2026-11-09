@@ -211,7 +211,7 @@ export async function deleteRecord(actor: Actor, type: DeletableType, id: string
         name = `${e.code} — ${e.fullName}`;
         await tx.historicalIssue.updateMany({ where: { employeeId: id }, data: { employeeId: null } });
         await tx.employee.delete({ where: { id } });
-        redirect = "/employees";
+        redirect = "/sites";
         break;
       }
       case "material": {

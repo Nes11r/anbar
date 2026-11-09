@@ -5,45 +5,32 @@ import { requirePage } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az } from "@/i18n/az";
-import { fmtDate, fmtQty, sp } from "@/lib/format";
+import { fmtDate, fmtQty } from "@/lib/format";
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { employeeHistory } from "@/server/services/reports";
 import { netHeld } from "@/server/services/stockdocs";
 import { variantOptionsByIds } from "@/server/services/catalog";
-import { EmployeeForm } from "../employee-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function EmployeePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function EmployeePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("employee.view");
   const { id } = await params;
-  const s = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const e = await db.employee.findUnique({ where: { id }, include: { project: true } });
   if (!e) notFound();
-  if (sp(s.edit) === "1" && can(user.role, "employee.manage")) {
-    const projects = await db.project.findMany({ orderBy: { code: "asc" } });
-    return (
-      <>
-        <PageHeader viewOnly={{ role: user.role, perm: "employee.manage", action: "işçi kartını dəyişmək" }} title={`Düzəliş: ${e.fullName}`} crumbs={[{ href: "/employees", label: "İşçilər" }, { href: `/employees/${e.id}`, label: e.fullName }, { label: "Düzəliş" }]} />
-        <EmployeeForm id={e.id} v={e} projects={projects.map((p) => [p.id, `${p.code} — ${p.name}`])} />
-      </>
-    );
-  }
   const [hist, held] = await Promise.all([employeeHistory(id), netHeld(db, { employeeId: id })]);
   const heldIds = [...held.entries()].filter(([, q]) => q.gt(0)).map(([v]) => v);
   const opts = await variantOptionsByIds(heldIds);
   return (
     <>
       <PageHeader
-        viewOnly={{ role: user.role, perm: "employee.manage", action: "işçi kartını dəyişmək" }}
         title={e.fullName}
-        subtitle={<span className="flex items-center gap-2">{e.code} · {e.position ?? "—"} {e.group === "ENGINEER" ? <Badge tone="brand">Mühəndis</Badge> : <Badge tone="warn">Fəhlə</Badge>}{e.project && <> · <Link className="link" href={`/projects/${e.project.id}`}>{e.project.code}</Link></>}</span>}
-        crumbs={[{ href: "/employees", label: "İşçilər" }, { label: e.fullName }]}
+        subtitle={<span className="flex items-center gap-2">{e.group === "ENGINEER" ? <Badge tone="brand">Mühəndis</Badge> : <Badge tone="warn">Fəhlə</Badge>}{e.project && <> · <Link className="link" href={`/projects/${e.project.id}`}>{e.project.code}</Link></>}</span>}
+        crumbs={e.project ? [{ href: "/sites", label: "Sahə anbarları" }, { href: `/sites/${e.project.id}`, label: e.project.code }, { label: e.fullName }] : [{ href: "/sites", label: "Sahə anbarları" }, { label: e.fullName }]}
         actions={<>
           <a className="btn" href={`/api/export/employee?id=${e.id}`}>Excel</a>
-          {can(user.role, "stockdoc.edit") && <Link className="btn btn-primary" href="/movements/new?kind=ISSUE_EMPLOYEE">+ PPE təhvili</Link>}
-          {can(user.role, "employee.manage") && <Link className="btn" href={`/employees/${e.id}?edit=1`}>Düzəliş</Link>}
+          {can(user.role, "stockdoc.edit") && <Link className="btn btn-primary" href={`/movements/new?kind=ISSUE_EMPLOYEE&employee=${e.id}`}>+ Material ver</Link>}
           {can(user.role, "employee.manage") && <DeleteButton type="employee" id={e.id} label={e.fullName} />}
         </>}
       />

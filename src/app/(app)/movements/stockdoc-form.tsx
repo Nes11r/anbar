@@ -12,12 +12,12 @@ type Kind = StockDocInput["kind"];
 export interface StockDocOptions {
   warehouses: { id: string; name: string; type: string; projectId?: string | null }[];
   projects: { id: string; label: string }[];
-  employees: { id: string; label: string; group: "ENGINEER" | "WORKER"; projectId: string | null }[];
+  employees: { id: string; name: string; label: string; group: "ENGINEER" | "WORKER"; projectId: string | null }[];
   suppliers: { id: string; label: string }[];
   canOverride: boolean;
 }
 export interface StockDocInitial {
-  kind: Kind; warehouseId: string; toWarehouseId?: string | null; projectId?: string | null; employeeId?: string | null; supplierId?: string | null;
+  kind: Kind; warehouseId: string; toWarehouseId?: string | null; projectId?: string | null; employeeId?: string | null; employeeName?: string | null; employeeGroup?: "ENGINEER" | "WORKER" | null; supplierId?: string | null;
   recipientName?: string | null; purpose?: string | null; reason?: string | null; externalRef?: string | null; docDate: string; notes?: string | null; lines: EditorLine[];
 }
 
@@ -29,11 +29,12 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
   const siteOf = (projectId?: string | null) => (projectId ? options.warehouses.find((w) => w.projectId === projectId)?.id : undefined);
   const presetEmp = preset?.employeeId ? options.employees.find((e) => e.id === preset.employeeId) : undefined;
   const [h, setH] = useState<Omit<StockDocInitial, "lines">>(
-    initial ?? {
+    (initial ? { ...initial, employeeName: initial.employeeName ?? options.employees.find((e) => e.id === initial.employeeId)?.name ?? null } : null) ?? {
       kind,
       warehouseId: preset?.warehouseId && options.warehouses.some((w) => w.id === preset.warehouseId) ? preset.warehouseId : siteOf(presetEmp?.projectId) ?? normal[0]?.id ?? "",
       toWarehouseId: preset?.toWarehouseId ?? null,
       employeeId: presetEmp?.id ?? null,
+      employeeName: presetEmp?.name ?? null,
       projectId: presetEmp?.projectId ?? null,
       docDate: todayIso(),
     },
@@ -45,6 +46,19 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
   const router = useRouter();
   const set = (k: keyof StockDocInitial, v: string | null) => setH((x) => ({ ...x, [k]: v }));
   const emp = useMemo(() => options.employees.find((e) => e.id === h.employeeId), [options.employees, h.employeeId]);
+  const whProject = options.warehouses.find((w) => w.id === h.warehouseId)?.projectId ?? null;
+  const knownNames = useMemo(
+    () => [...new Set(options.employees.filter((e) => !whProject || e.projectId === whProject).map((e) => e.name))].sort((a, b) => a.localeCompare(b, "az")),
+    [options.employees, whProject],
+  );
+  const holders = options.employees.filter((e) => !whProject || e.projectId === whProject);
+  const isNewWorker = kind === "ISSUE_EMPLOYEE" && !!h.employeeName?.trim() && !emp;
+  const issueGroup = emp?.group ?? (isNewWorker ? h.employeeGroup ?? "WORKER" : undefined);
+  const onWorkerName = (name: string) => {
+    const n = name.replace(/\s+/g, " ").trim().toLocaleLowerCase("az");
+    const match = n ? options.employees.find((e) => e.name.toLocaleLowerCase("az") === n && (!whProject || e.projectId === whProject)) : undefined;
+    setH((x) => ({ ...x, employeeName: name, employeeId: match?.id ?? null, projectId: match?.projectId ?? whProject ?? null }));
+  };
   const projectLabel = (pid: string) => options.projects.find((p) => p.id === pid)?.label;
   const siteTargets = options.warehouses
     .filter((w) => w.projectId && w.id !== h.warehouseId)
@@ -57,6 +71,9 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
     const filled = lines.filter((l) => l.variant);
     if (!filled.length) { toast("bad", "Ən azı bir material seçin."); return; }
     if (filled.some((l) => !(Number(l.qty) > 0))) { toast("bad", "Hər sətirdə miqdar 0-dan böyük olmalıdır."); return; }
+    if (kind === "ISSUE_EMPLOYEE" && !h.employeeId && (h.employeeName?.trim().length ?? 0) < 3) {
+      setErrors({ employeeName: "İşçinin adını və soyadını yazın" }); toast("bad", "İşçinin adını və soyadını yazın."); return;
+    }
     if (kind === "TRANSFER") {
       const errs: Record<string, string> = {};
       if (!h.toWarehouseId) errs.toWarehouseId = "Hansı layihəyə (anbara) göndərildiyini seçin";
@@ -69,6 +86,8 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
       toWarehouseId: kind === "TRANSFER" ? h.toWarehouseId ?? null : null,
       projectId: kind === "TRANSFER" ? null : h.projectId || null,
       employeeId: h.employeeId || null,
+      employeeName: kind === "ISSUE_EMPLOYEE" && !h.employeeId ? h.employeeName?.trim() || null : null,
+      employeeGroup: kind === "ISSUE_EMPLOYEE" && !h.employeeId ? h.employeeGroup ?? "WORKER" : null,
       supplierId: h.supplierId || null,
       recipientName: h.recipientName || null,
       purpose: h.purpose || null,
@@ -95,7 +114,7 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
       <section className="card grid gap-4 p-4 md:grid-cols-4">
         <label className="label">
           <span className="req">{kind === "TRANSFER" ? "Haradan (mənbə anbar)" : kind.startsWith("RETURN_FROM") ? "Qəbul edən anbar" : "Anbar"}</span>
-          <select className="select" value={h.warehouseId} onChange={(e) => set("warehouseId", e.target.value)}>
+          <select className="select" value={h.warehouseId} onChange={(e) => { const v = e.target.value; setH((x) => (kind === "ISSUE_EMPLOYEE" ? { ...x, warehouseId: v, employeeId: null, projectId: null } : { ...x, warehouseId: v })); }}>
             {srcWarehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         </label>
@@ -123,21 +142,32 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
             </select>
           </label>
         )}
-        {(kind === "ISSUE_EMPLOYEE" || kind === "RETURN_FROM_EMPLOYEE") && (
-          <>
-            <label className="label md:col-span-2"><span className="req">İşçi</span>
-              <select className="select" value={h.employeeId ?? ""} onChange={(e) => { const ee = options.employees.find((x) => x.id === e.target.value); setH((x) => ({ ...x, employeeId: e.target.value, projectId: ee?.projectId ?? x.projectId ?? null, warehouseId: id ? x.warehouseId : siteOf(ee?.projectId) ?? x.warehouseId })); }} aria-invalid={!!errors.employeeId}>
-                <option value="">— seçin —</option>
-                {options.employees.map((e) => <option key={e.id} value={e.id}>{e.label} · {az.employeeGroup[e.group]}</option>)}
-              </select>
+        {kind === "ISSUE_EMPLOYEE" && (
+          <div className="label md:col-span-2">
+            <label className="grid gap-1"><span className="req">İşçinin adı, soyadı</span>
+              <input className="input" list="known-workers" value={h.employeeName ?? ""} onChange={(e) => onWorkerName(e.target.value)} placeholder="məs. Elvin Məmmədov" autoComplete="off" aria-invalid={!!errors.employeeName} maxLength={200} />
             </label>
-            <label className="label"><span>Layihə (hesabat üçün)</span>
-              <select className="select" value={h.projectId ?? ""} onChange={(e) => set("projectId", e.target.value)}>
-                <option value="">İşçinin layihəsi</option>
-                {options.projects.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
-            </label>
-          </>
+            <datalist id="known-workers">{knownNames.map((n) => <option key={n} value={n} />)}</datalist>
+            {errors.employeeName ? <span className="field-err">{errors.employeeName}</span> : emp ? (
+              <span className="text-[11px] font-normal text-muted">Bu işçiyə əvvəl də material verilib ({az.employeeGroup[emp.group]}).</span>
+            ) : isNewWorker ? (
+              <span className="flex flex-wrap items-center gap-2 text-[11px] font-normal text-muted">Yeni ad — yadda saxlanılacaq.
+                {(["WORKER", "ENGINEER"] as const).map((g) => (
+                  <label key={g} className={`chip cursor-pointer ${(h.employeeGroup ?? "WORKER") === g ? "!bg-brand !text-brand-ink !border-brand" : ""}`}>
+                    <input type="radio" className="sr-only" name="employeeGroup" checked={(h.employeeGroup ?? "WORKER") === g} onChange={() => setH((x) => ({ ...x, employeeGroup: g }))} />{az.employeeGroup[g]}
+                  </label>
+                ))}
+              </span>
+            ) : <span className="text-[11px] font-normal text-muted">Adı yazın — əvvəl material verilmiş işçilər siyahıda çıxacaq.</span>}
+          </div>
+        )}
+        {kind === "RETURN_FROM_EMPLOYEE" && (
+          <label className="label md:col-span-2"><span className="req">Kimdən geri alınır</span>
+            <select className="select" value={h.employeeId ?? ""} onChange={(e) => { const ee = options.employees.find((x) => x.id === e.target.value); setH((x) => ({ ...x, employeeId: e.target.value, projectId: ee?.projectId ?? x.projectId ?? null, warehouseId: id ? x.warehouseId : siteOf(ee?.projectId) ?? x.warehouseId })); }} aria-invalid={!!errors.employeeId}>
+              <option value="">— işçini seçin —</option>
+              {holders.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </label>
         )}
         {kind === "RETURN_TO_SUPPLIER" && (
           <label className="label md:col-span-2"><span className="req">Tədarükçü</span>
@@ -166,7 +196,7 @@ export function StockDocForm({ kind, options, initial, id, version, preset }: { 
           showDirection={kind === "ADJUSTMENT"}
           showCondition={kind === "RETURN_FROM_PROJECT" || kind === "RETURN_FROM_EMPLOYEE"}
           quarantineWarehouses={quarantine}
-          employeeGroup={kind === "ISSUE_EMPLOYEE" ? emp?.group : undefined}
+          employeeGroup={kind === "ISSUE_EMPLOYEE" ? issueGroup : undefined}
           allowOverride={options.canOverride}
           errors={errors}
         />

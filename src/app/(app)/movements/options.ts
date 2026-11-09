@@ -14,7 +14,7 @@ export async function stockDocOptions(role: UserRole, user?: { role: UserRole; p
   return {
     warehouses: warehouses.map((w) => ({ id: w.id, name: w.name, type: w.type, projectId: w.projectId })),
     projects: projects.map((p) => ({ id: p.id, label: `${p.code} — ${p.name}` })),
-    employees: employees.map((e) => ({ id: e.id, label: `${e.fullName} (${e.code})`, group: e.group, projectId: e.projectId })),
+    employees: employees.map((e) => ({ id: e.id, name: e.fullName, label: `${e.fullName} (${e.code})`, group: e.group, projectId: e.projectId })),
     suppliers: suppliers.map((s) => ({ id: s.id, label: s.name })),
     canOverride: can(role, "issue.override"),
   };

@@ -12,7 +12,7 @@ export const metadata = { title: "Yeni əməliyyat" };
 
 const HINT: Record<StockDocKind, string> = {
   ISSUE_PROJECT: "Layihəni seçin, stokda olan material və ölçünü seçin, miqdarı və təhvil alanı göstərin. Təsdiqdə anbardan atomik məxaric olunur.",
-  ISSUE_EMPLOYEE: "PPE işçiyə verilir — adətən layihənin sahə anbarından (işçi seçiləndə onun sahə anbarı avtomatik seçilir). İşçinin qrupu (mühəndis/fəhlə) materialın təyinatı ilə yoxlanılır; uyğunsuzluqda səlahiyyətli səbəb tələb olunur.",
+  ISSUE_EMPLOYEE: "Anbarı seçin, işçinin adını və soyadını yazın, verilən materialları əlavə edin. Ayrıca işçi qeydiyyatı lazım deyil — sistem kimə nə verildiyini ad üzrə yadda saxlayır.",
   RETURN_FROM_PROJECT: "Layihəyə xalis veriləndən çox qaytarıla bilməz. Qüsurlu material karantin anbarına düşür.",
   RETURN_FROM_EMPLOYEE: "İşçiyə xalis veriləndən çox geri alına bilməz.",
   RETURN_TO_SUPPLIER: "Qüsurlu və ya artıq malın tədarükçüyə qaytarılması.",
@@ -33,8 +33,8 @@ export default async function NewMovement({ searchParams }: { searchParams: Prom
       <PageHeader title={`Yeni: ${az.stockDocKind[kind]}`} subtitle={HINT[kind]} crumbs={[{ href: "/movements", label: "Mədaxil / Məxaric" }, { label: az.stockDocKind[kind] }]} />
       {(kind === "ISSUE_PROJECT" || kind === "RETURN_FROM_PROJECT") && options.projects.length === 0 ? (
         <div className="alert alert-warn">Əvvəlcə <Link className="link" href="/projects/new">layihə yaradın</Link>.</div>
-      ) : (kind === "ISSUE_EMPLOYEE" || kind === "RETURN_FROM_EMPLOYEE") && options.employees.length === 0 ? (
-        <div className="alert alert-warn">Əvvəlcə <Link className="link" href="/employees/new">işçi kartı yaradın</Link>.</div>
+      ) : kind === "RETURN_FROM_EMPLOYEE" && options.employees.length === 0 ? (
+        <div className="alert alert-warn">Hələ heç bir işçiyə material verilməyib.</div>
       ) : (
         <StockDocForm kind={kind} options={options} preset={preset} />
       )}

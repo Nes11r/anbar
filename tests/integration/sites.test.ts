@@ -111,6 +111,23 @@ describe("Bir addımda təsdiq (Təsdiqlə)", () => {
   });
 });
 
+describe("İşçiyə ad ilə təhvil (ayrıca işçi qeydiyyatı yoxdur)", () => {
+  it("yeni ad işçi kimi yadda saxlanılır, eyni ad (böyük/kiçik hərf fərqi ilə) həmin işçiyə yazılır", async () => {
+    const { project, site, v } = await setup();
+    await createAndPostStockDoc(wm, { kind: "TRANSFER", warehouseId: B.wh.id, toWarehouseId: site.id, recipientName: "Sürücü", docDate: today, lines: [{ variantId: v.id, qty: 5, direction: -1 }] } as never);
+    const a = await createAndPostStockDoc(wm, { kind: "ISSUE_EMPLOYEE", warehouseId: site.id, employeeName: "  Rəşad   Quliyev ", docDate: today, lines: [{ variantId: v.id, qty: 1, direction: -1 }] } as never);
+    const b = await createAndPostStockDoc(wm, { kind: "ISSUE_EMPLOYEE", warehouseId: site.id, employeeName: "rəşad quliyev", docDate: today, lines: [{ variantId: v.id, qty: 1, direction: -1 }] } as never);
+    expect(a.posted && b.posted).toBe(true);
+    const workers = await db.employee.findMany({ where: { fullName: { equals: "Rəşad Quliyev", mode: "insensitive" } } });
+    expect(workers).toHaveLength(1);
+    expect(workers[0].projectId).toBe(project.id);
+    const docs = await db.stockDocument.findMany({ where: { id: { in: [a.id, b.id] } } });
+    expect(docs.every((d) => d.employeeId === workers[0].id && d.projectId === project.id)).toBe(true);
+    const held = await siteWorkerHoldings(project.id);
+    expect(JSON.stringify(held)).toContain("Rəşad Quliyev");
+  });
+});
+
 describe("Qeydiyyat", () => {
   it("özünü qeydiyyatdan keçirən hesab aktiv deyil və minimal roldadır; eyni e-poçt təkrar olmur", async () => {
     await registerAccount({ accountType: "COMPANY", name: "Yeni Rəhbər", email: "boss@test.local", password: "Parol12345x", password2: "Parol12345x" }, (p) => bcrypt.hash(p, 4));
