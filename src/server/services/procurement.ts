@@ -2,7 +2,7 @@ import { Prisma, type MRStatus, type UserRole } from "@prisma/client";
 import { z } from "zod";
 import { db, withTx, type Tx } from "@/lib/db";
 import { AppError, ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { can } from "@/lib/rbac";
+import { can, isLeadership } from "@/lib/rbac";
 import { audit, statusChange, type Actor } from "../audit";
 import { applyMovements, nextNumber, reversalMovements, type LedgerMovement } from "../stock/ledger";
 import { D, poReceiptStatus, validateQty } from "../stock/rules";
@@ -163,7 +163,7 @@ export async function updateMR(actor: Actor, id: string, version: number, input:
   return withTx(async (tx) => {
     const cur = await tx.materialRequest.findUnique({ where: { id } });
     if (!cur) throw new NotFoundError("MR");
-    if (cur.requesterId !== actor.id && actor.role !== "SUPER_ADMIN") throw new ForbiddenError("MR-i yalnız onu yaradan və ya admin dəyişə bilər.");
+    if (cur.requesterId !== actor.id && !isLeadership(actor.role)) throw new ForbiddenError("MR-i yalnız onu yaradan və ya rəhbərlik dəyişə bilər.");
     if (cur.projectId !== d.projectId || cur.discipline !== d.discipline) throw new AppError("MR nömrəsi layihə və disiplinə bağlıdır; onları dəyişmək üçün yeni MR yaradın.");
     const { rows, total } = await buildMrLines(tx, d.lines);
     const r = await tx.materialRequest.updateMany({
@@ -256,7 +256,7 @@ export async function submitMR(actor: Actor, id: string) {
 }
 
 export function canDecideStep(role: UserRole, allowed: UserRole[]) {
-  return role === "SUPER_ADMIN" || allowed.includes(role);
+  return isLeadership(role) || allowed.includes(role);
 }
 
 export async function decideMR(actor: Actor, id: string, step: number, decision: "APPROVED" | "REJECTED" | "REVISE", comment?: string) {

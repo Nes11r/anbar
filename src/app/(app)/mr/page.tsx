@@ -9,7 +9,7 @@ import { Badge, Card, Empty, FilterChips, PageHeader, Pagination } from "@/compo
 import { SearchBox } from "@/components/client/search-box";
 import { StageBadge } from "@/components/timeline";
 import { mrListStage } from "@/server/services/tracking";
-import { scopeProjectId } from "@/lib/rbac";
+import { isLeadership, scopeProjectId } from "@/lib/rbac";
 
 export const metadata = { title: "Material tələbləri" };
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function MRList({ searchParams }: { searchParams: Promise<R
   if (params.status === "pending") where.status = { in: ["SUBMITTED", "UNDER_REVIEW"] };
   else if (params.status && params.status in az.mrStatus) where.status = params.status as MRStatus;
   if (params.q) where.OR = [{ mrNumber: { contains: params.q, mode: "insensitive" } }, { requesterName: { contains: params.q, mode: "insensitive" } }];
-  if (params.mine === "approve") where.approvals = { some: { decision: "PENDING", ...(user.role === "SUPER_ADMIN" ? {} : { allowedRoles: { has: user.role } }) } };
+  if (params.mine === "approve") where.approvals = { some: { decision: "PENDING", ...(isLeadership(user.role) ? {} : { allowedRoles: { has: user.role } }) } };
   const [total, rows, projects] = await Promise.all([
     db.materialRequest.count({ where }),
     db.materialRequest.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * 50, take: 50, include: { _count: { select: { lines: true } }, approvals: { where: { decision: "PENDING" }, orderBy: { step: "asc" }, take: 1 }, orders: { select: { status: true, paymentStatus: true, shippedAt: true } } } }),

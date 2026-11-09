@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DeleteButton } from "@/components/delete-button";
 import { notFound } from "next/navigation";
 import { requirePage } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { can, isLeadership } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { az, MR_LISTS } from "@/i18n/az";
 import { fmtDate, fmtDateTime, fmtMoney, fmtQty, isoDate, sp } from "@/lib/format";
@@ -36,7 +36,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
     siteFiguresFor(mr.projectId, mr.lines.map((l) => l.variantId).filter((x): x is string => !!x)),
   ]);
   const siteWarnings = mr.lines.filter((l) => l.variantId && (site.get(l.variantId)?.inStock.gt(0) ?? false));
-  const editable = (mr.status === "DRAFT" || mr.status === "RETURNED") && (mr.requesterId === user.id || user.role === "SUPER_ADMIN") && can(user.role, "mr.create");
+  const editable = (mr.status === "DRAFT" || mr.status === "RETURNED") && (mr.requesterId === user.id || isLeadership(user.role)) && can(user.role, "mr.create");
 
   if (editable && sp(s.edit) === "1") {
     const [opts, vopts] = await Promise.all([mrFormOptions(), variantOptionsByIds(mr.lines.map((l) => l.variantId).filter(Boolean) as string[])]);
@@ -68,7 +68,7 @@ export default async function MRPage({ params, searchParams }: { params: Promise
         actions={<>
           <PrintButton />
           {editable && <Link className="btn" href={`/mr/${mr.id}?edit=1`}>Düzəliş</Link>}
-          {(mr.status === "DRAFT" || mr.status === "CANCELLED") && can(user.role, "mr.create") && (mr.requesterId === user.id || user.role === "SUPER_ADMIN") && <DeleteButton type="materialRequest" id={mr.id} label={`${mr.mrNumber} Rev.${mr.revision}`} />}
+          {(mr.status === "DRAFT" || mr.status === "CANCELLED") && can(user.role, "mr.create") && (mr.requesterId === user.id || isLeadership(user.role)) && <DeleteButton type="materialRequest" id={mr.id} label={`${mr.mrNumber} Rev.${mr.revision}`} />}
           {editable && <ActionButton className="btn btn-primary" action={submitMRAction.bind(null, mr.id)} confirm="MR təsdiq marşrutuna göndərilsin? Göndərildikdən sonra dəyişmək olmaz (yalnız geri qaytarılarsa).">Təsdiqə göndər</ActionButton>}
           {orderable && can(user.role, "po.manage") && <Link className="btn btn-brand" href={`/po/new?mr=${mr.id}`}>PO yarat</Link>}
           {can(user.role, "mr.create") && !["DRAFT"].includes(mr.status) && <ActionButton className="btn" action={reviseMRAction.bind(null, mr.id)} confirm="Yeni reviziya (Rev.+1) yaradılsın?" reason={{ label: "Reviziya səbəbi", required: true }} >Reviziya</ActionButton>}

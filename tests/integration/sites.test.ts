@@ -131,4 +131,14 @@ describe("Sifarişin izlənməsi", () => {
     expect(currentStageLabel(await mrTimeline(mr.id)).label).toBe("Anbarda (tam)");
     await expect(setPOPayment(sk, po.id, { status: "PAID" })).rejects.toThrow(/səlahiyyət/);
   });
+
+  it("direktor istənilən MR mərhələsini təsdiq edə bilir", async () => {
+    const { project, v } = await setup();
+    const director = await makeUser("DIRECTOR");
+    const mr = await createMR(pm, { projectId: project.id, discipline: "MEC", requestType: "NEW", priority: "NORMAL", dateRaised: today, requiredOnSiteDate: today, requesterName: "PM", currency: "AZN", referenceDocs: [], formData: {}, lines: [{ variantId: v.id, description: "Kombinezon 52", uomCode: "PCS", qtyRequired: 15, surplusPct: 0 }] } as never);
+    await submitMR(pm, mr.id);
+    await decideMR(director, mr.id, 2, "APPROVED");
+    const r = await decideMR(director, mr.id, 8, "APPROVED");
+    expect(r.status).toBe("APPROVED");
+  });
 });

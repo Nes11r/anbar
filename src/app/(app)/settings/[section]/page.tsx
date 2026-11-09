@@ -118,7 +118,7 @@ export default async function SettingsSection({ params, searchParams }: { params
           <UserForm key={cur?.id ?? "new"} id={cur?.id ?? null} fields={[
             { name: "email", label: "E-poçt (login)", type: "email", required: true, defaultValue: cur?.email },
             { name: "name", label: "Ad, soyad", type: "text", required: true, defaultValue: cur?.name },
-            { name: "role", label: "Rol", type: "select", defaultValue: suggested ?? "STOREKEEPER", options: ROLES.map((r) => [r, az.role[r]]), hint: "Şirkət rəhbəri = Rəhbər / Direktor. İşçi və Sifarişçi heç nəyi təsdiq edə bilmir." },
+            { name: "role", label: "Rol", type: "select", defaultValue: suggested ?? "STOREKEEPER", options: ROLES.map((r) => [r, az.role[r]]), hint: "Rəhbər / Direktor — hər şeyi görür və təsdiq edir. Super Admin — əlavə olaraq istifadəçiləri və sistem parametrlərini idarə edir. İşçi və Sifarişçi heç nəyi təsdiq edə bilmir." },
             { name: "projectId", label: "Layihə ilə məhdudlaşdır", type: "select", defaultValue: cur?.projectId ?? "", options: [["", "— bütün layihələr —"], ...projects.map((p) => [p.id, `${p.code} — ${p.name}`] as [string, string])], hint: "Sahə anbardarı, layihə rəhbəri, işçi və sifarişçi üçün: yalnız bu layihəni və onun sahə anbarını idarə edir" },
             { name: "employeeId", label: "İşçi kartı (yalnız İşçi rolu üçün)", type: "select", defaultValue: cur?.employeeId ?? "", options: [["", "—"], ...employees.map((e) => [e.id, `${e.fullName} (${e.code})`] as [string, string])] },
             { name: "password", label: cur ? "Yeni parol (boş — dəyişmir)" : "İlkin parol", type: "password", required: !cur, hint: "Ən azı 10 simvol, hərf və rəqəm." },

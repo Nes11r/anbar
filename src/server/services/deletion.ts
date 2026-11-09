@@ -1,6 +1,6 @@
 import { withTx, type Tx } from "@/lib/db";
 import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { can, type Permission } from "@/lib/rbac";
+import { can, isLeadership, type Permission } from "@/lib/rbac";
 import { audit, type Actor } from "../audit";
 
 /**
@@ -303,7 +303,7 @@ export async function deleteRecord(actor: Actor, type: DeletableType, id: string
       case "materialRequest": {
         const mr = await tx.materialRequest.findUnique({ where: { id }, include: { _count: { select: { orders: true } } } });
         if (!mr) throw new NotFoundError("MR");
-        if (mr.requesterId !== actor.id && actor.role !== "SUPER_ADMIN") throw new ForbiddenError("MR-i yalnız onu yaradan və ya admin silə bilər.");
+        if (mr.requesterId !== actor.id && !isLeadership(actor.role)) throw new ForbiddenError("MR-i yalnız onu yaradan və ya rəhbərlik silə bilər.");
         if (mr.status !== "DRAFT" && mr.status !== "CANCELLED") throw new AppError("Yalnız qaralama və ya ləğv edilmiş MR silinə bilər. Təsdiq prosesinə düşmüş MR-i ləğv edin.", "NOT_DRAFT");
         if (mr._count.orders) throw new AppError("Bu MR-ə bağlı PO var — silinə bilməz.", "HAS_HISTORY");
         snapshot = mr;

@@ -16,7 +16,10 @@ datasource db {
 // ───────────────────────── Enums ─────────────────────────
 
 enum UserRole {
+  /// System administrator (IT): users, approval route, system settings
   SUPER_ADMIN
+  /// Company head: sees and approves everything business-related, no system administration
+  DIRECTOR
   WAREHOUSE_MANAGER
   STOREKEEPER
   PROCUREMENT

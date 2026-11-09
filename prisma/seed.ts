@@ -49,8 +49,8 @@ const STEPS: [step: number, code: string, label: string, resp: string, cond: "AL
   [3, "QAQC_MANAGER", "QA/QC meneceri", "Yoxlama və sertifikat tələbləri kifayətdir", "ALWAYS", ["PROJECT_MANAGER"]],
   [4, "SITE_MANAGER", "Tikinti / sahə meneceri", "Material göstərilən vaxtda və yerdə lazımdır", "ALWAYS", ["PROJECT_MANAGER", "WAREHOUSE_MANAGER"]],
   [5, "COST_CONTROLLER", "Xərc nəzarətçisi", "Büdcə və xərc kodu yoxlanılıb", "ALWAYS", ["PROCUREMENT"]],
-  [6, "PROJECT_MANAGER", "Layihə meneceri", "Ümumi təsdiq; təcili / fövqəladə üçün məcburi", "URGENT_OR_PM_THRESHOLD", ["PROJECT_MANAGER"]],
-  [7, "GENERAL_DIRECTOR", "Baş direktor", "Yüksək dəyərli MR-lərin təsdiqi", "GD_THRESHOLD", ["SUPER_ADMIN"]],
+  [6, "PROJECT_MANAGER", "Layihə meneceri", "Ümumi təsdiq; təcili / fövqəladə üçün məcburi", "URGENT_OR_PM_THRESHOLD", ["PROJECT_MANAGER", "DIRECTOR"]],
+  [7, "GENERAL_DIRECTOR", "Baş direktor", "Yüksək dəyərli MR-lərin təsdiqi", "GD_THRESHOLD", ["SUPER_ADMIN", "DIRECTOR"]],
   [8, "PROCUREMENT_MANAGER", "Satınalma meneceri", "Tədarük üçün qəbul edildi", "ALWAYS", ["PROCUREMENT"]],
 ];
 

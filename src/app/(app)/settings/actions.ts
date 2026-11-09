@@ -14,6 +14,6 @@ export async function saveSettingsAction(data: Record<string, unknown>) {
   return runAction("settings.manage", (a) => saveSettings(a, data as never), { revalidate: ["/settings"], message: "Parametrlər yadda saxlanıldı" });
 }
 export async function saveStepAction(step: number, data: Record<string, unknown>) {
-  const roles = (["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"] as UserRole[]).filter((r) => data[`role_${r}`] === true);
+  const roles = (["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR"] as UserRole[]).filter((r) => data[`role_${r}`] === true);
   return runAction("settings.manage", (a) => saveApprovalStep(a, step, { isActive: data.isActive === true, condition: data.condition as never, allowedRoles: roles }), { revalidate: ["/settings"], message: "Mərhələ yadda saxlanıldı" });
 }

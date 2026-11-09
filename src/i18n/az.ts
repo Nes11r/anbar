@@ -24,7 +24,8 @@ export const az = {
     settings: "Parametrlər",
   },
   role: {
-    SUPER_ADMIN: "Rəhbər / Direktor (Super Admin)",
+    SUPER_ADMIN: "Super Admin (sistem administratoru)",
+    DIRECTOR: "Rəhbər / Direktor",
     WAREHOUSE_MANAGER: "Anbar müdiri",
     STOREKEEPER: "Anbardar",
     PROCUREMENT: "Satınalma",

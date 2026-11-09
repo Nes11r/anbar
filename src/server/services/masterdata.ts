@@ -128,7 +128,7 @@ export async function saveMasterRecord(actor: Actor, entity: Entity, id: string 
 export const userSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-poçt düzgün deyil."),
   name: z.string().trim().min(2).max(100),
-  role: z.enum(["SUPER_ADMIN", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"]),
+  role: z.enum(["SUPER_ADMIN", "DIRECTOR", "WAREHOUSE_MANAGER", "STOREKEEPER", "PROCUREMENT", "PROJECT_MANAGER", "AUDITOR", "EMPLOYEE", "CLIENT"]),
   isActive: z.boolean().default(true),
   password: z.string().optional().nullable(),
   projectId: z.string().uuid().optional().nullable().or(z.literal("").transform(() => null)),
