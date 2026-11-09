@@ -26,6 +26,7 @@ export default defineConfig({
     env: {
       // Integration tests NEVER touch the real database
       DATABASE_URL: testDb ?? "postgresql://invalid/never-use-real-db",
+      DIRECT_URL: testDb ?? "postgresql://invalid/never-use-real-db",
     },
   },
 });

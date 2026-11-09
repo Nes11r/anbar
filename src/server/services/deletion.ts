@@ -1,5 +1,4 @@
-import { unlink } from "node:fs/promises";
-import { db, withTx, type Tx } from "@/lib/db";
+import { withTx, type Tx } from "@/lib/db";
 import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { can, type Permission } from "@/lib/rbac";
 import { audit, type Actor } from "../audit";
@@ -76,8 +75,7 @@ export async function deleteRecord(actor: Actor, type: DeletableType, id: string
   if (!PERM[type] || !can(actor.role, PERM[type])) throw new ForbiddenError();
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new NotFoundError(LABEL[type] ?? "Qeyd");
 
-  let fileToRemove: string | null = null;
-  const result = await withTx(async (tx) => {
+  return withTx(async (tx) => {
     let snapshot: unknown;
     let name = "";
     let redirect = "/";
@@ -319,7 +317,6 @@ export async function deleteRecord(actor: Actor, type: DeletableType, id: string
         if (!b) throw new NotFoundError("Import paketi");
         if (b.status === "COMMITTED") throw new AppError("Təsdiqlənmiş import silinmir — əvvəlcə “Geri qaytar” edin.", "NOT_DRAFT");
         snapshot = { fileName: b.fileName, sheetName: b.sheetName, dataType: b.dataType, status: b.status };
-        fileToRemove = b.storagePath;
         name = b.fileName;
         await tx.importBatch.delete({ where: { id } }); // rows cascade
         redirect = "/import";
@@ -332,9 +329,4 @@ export async function deleteRecord(actor: Actor, type: DeletableType, id: string
     await audit(tx, actor, "DELETE", type, id, `${LABEL[type]} silindi: ${name}`, snapshot);
     return { redirect, label: `${LABEL[type]} silindi: ${name}` };
   });
-  // Uploaded file is shared by batches with the same content hash — remove it only when no batch uses it any more.
-  if (fileToRemove && (await db.importBatch.count({ where: { storagePath: fileToRemove } })) === 0) {
-    await unlink(fileToRemove).catch(() => undefined);
-  }
-  return result;
 }

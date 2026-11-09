@@ -23,6 +23,6 @@ export default defineConfig({
     url: "http://127.0.0.1:3100/api/health",
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { DATABASE_URL: TEST_DB, NODE_ENV: "production", UPLOAD_DIR: "./test-results/uploads" },
+    env: { DATABASE_URL: TEST_DB, DIRECT_URL: TEST_DB, NODE_ENV: "production", UPLOAD_DIR: "./test-results/uploads" },
   },
 });

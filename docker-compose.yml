@@ -34,6 +34,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public
+      DIRECT_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public
     command: ["npx", "prisma", "migrate", "deploy"]
     restart: "no"
 
@@ -49,6 +50,7 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public&connection_limit=20&pool_timeout=15
+      DIRECT_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public
       APP_URL: ${APP_URL:-http://localhost}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
@@ -106,6 +108,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public
+      DIRECT_URL: postgresql://hecotec:${POSTGRES_PASSWORD}@db:5432/hecotec_wms?schema=public
     restart: "no"
 
 volumes:

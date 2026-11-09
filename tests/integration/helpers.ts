@@ -11,7 +11,7 @@ export async function resetDb() {
   const tables = [
     "stock_ledger", "stock_balances", "reservations", "inventory_count_lines", "inventory_counts", "grn_lines", "goods_receipts",
     "po_lines", "purchase_orders", "mr_approvals", "mr_lines", "material_requests", "stock_doc_lines", "stock_documents",
-    "historical_issues", "import_rows", "import_batches", "material_variants", "materials", "employees", "projects", "suppliers",
+    "site_report_lines", "site_reports", "import_chunks", "historical_issues", "import_rows", "import_batches", "material_variants", "materials", "employees", "projects", "suppliers",
     "audit_log", "status_history", "doc_sequences", "sessions", "users", "attachments", "approval_step_config", "app_settings",
     "categories", "units", "warehouses",
   ];

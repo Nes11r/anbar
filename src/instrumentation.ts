@@ -10,7 +10,8 @@ export async function register() {
   process.on("uncaughtExceptionMonitor", (err) => {
     console.error(`[${new Date().toISOString()}] [uncaughtException]`, err.stack ?? err.message);
   });
-  // Graceful shutdown: finish in-flight DB work, close the pool.
+  // Graceful shutdown on self-hosting (Vercel manages function lifecycle itself).
+  if (process.env.VERCEL) return;
   const { db } = await import("./lib/db");
   const close = async () => {
     try {

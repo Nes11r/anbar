@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Prisma, type ImportDataType, type WorkerGroup } from "@prisma/client";
 import { z } from "zod";
@@ -13,7 +12,6 @@ import { D } from "../stock/rules";
 import { colLetter, detectHeaderRow, readWorkbook, sheetToGrid, type Cell, type Grid } from "./excel";
 import { cleanText, guessSizeType, isNA, normalizeSize, parseDate, parseMultiSizeCell, parseQty } from "./normalize";
 
-const UPLOAD_DIR = () => path.resolve(process.env.UPLOAD_DIR ?? "./uploads", "imports");
 const MAX_BYTES = 25 * 1024 * 1024;
 
 export const FIELD_DEFS: Record<ImportDataType, { key: string; label: string; required?: boolean }[]> = {
@@ -117,24 +115,60 @@ export async function uploadImport(actor: Actor, fileName: string, buf: Buffer) 
   }
   const sheetNames = wb.worksheets.map((w) => w.name);
   const fileHash = createHash("sha256").update(buf).digest("hex");
-  await mkdir(UPLOAD_DIR(), { recursive: true });
-  const storagePath = path.join(UPLOAD_DIR(), `${fileHash}.bin`);
-  await writeFile(storagePath, buf);
   const safeName = path.basename(fileName).replace(/[^\p{L}\p{N} ._()-]/gu, "_").slice(0, 200);
   const batch = await db.importBatch.create({
-    data: { fileName: safeName, fileHash, fileSize: buf.length, sheetNames, storagePath, createdById: actor.id },
+    data: { fileName: safeName, fileHash, fileSize: buf.length, sheetNames, fileData: new Uint8Array(buf), createdById: actor.id },
   });
   await db.auditLog.create({ data: { userId: actor.id, userEmail: actor.email, action: "IMPORT_UPLOAD", entityType: "ImportBatch", entityId: batch.id, summary: `${safeName} (${sheetNames.length} vərəq)` } });
   return batch;
 }
 
+/**
+ * Large files are uploaded in pieces (each request stays under the hosting body limit).
+ * begin → chunk × N → finish (assembles, validates, creates the batch exactly like uploadImport).
+ */
+const CHUNK_MAX = 4 * 1024 * 1024;
+
+export async function beginChunkedUpload(actor: Actor, fileName: string, size: number) {
+  if (!can(actor.role, "import.run")) throw new ForbiddenError();
+  if (!/\.(xlsx|xlsm)$/i.test(fileName)) throw new AppError("Yalnız .xlsx və .xlsm faylları qəbul edilir.", "VALIDATION");
+  if (!(size > 0) || size > MAX_BYTES) throw new AppError("Fayl boşdur və ya 25 MB-dan böyükdür.", "VALIDATION");
+  // Placeholder batch that holds the chunks; becomes the real batch on finish.
+  const b = await db.importBatch.create({
+    data: { fileName: path.basename(fileName).slice(0, 200), fileHash: "pending", fileSize: size, sheetNames: [], createdById: actor.id, status: "FAILED" },
+  });
+  // Old abandoned uploads (> 1 day) are cleaned up opportunistically
+  await db.importBatch.deleteMany({ where: { fileHash: "pending", createdAt: { lt: new Date(Date.now() - 86400_000) } } });
+  return { uploadId: b.id };
+}
+
+export async function appendChunk(actor: Actor, uploadId: string, idx: number, data: Buffer) {
+  if (!can(actor.role, "import.run")) throw new ForbiddenError();
+  if (!Number.isInteger(idx) || idx < 0 || idx > 50) throw new AppError("Yanlış hissə nömrəsi.", "VALIDATION");
+  if (data.length === 0 || data.length > CHUNK_MAX) throw new AppError("Yanlış hissə ölçüsü.", "VALIDATION");
+  const b = await db.importBatch.findUnique({ where: { id: uploadId } });
+  if (!b || b.fileHash !== "pending" || b.createdById !== actor.id) throw new NotFoundError("Yükləmə");
+  await db.importChunk.upsert({ where: { batchId_idx: { batchId: uploadId, idx } }, create: { batchId: uploadId, idx, data: new Uint8Array(data) }, update: { data: new Uint8Array(data) } });
+}
+
+export async function finishChunkedUpload(actor: Actor, uploadId: string) {
+  if (!can(actor.role, "import.run")) throw new ForbiddenError();
+  const b = await db.importBatch.findUnique({ where: { id: uploadId }, include: { chunks: { orderBy: { idx: "asc" } } } });
+  if (!b || b.fileHash !== "pending" || b.createdById !== actor.id) throw new NotFoundError("Yükləmə");
+  b.chunks.forEach((c, i) => {
+    if (c.idx !== i) throw new AppError("Faylın bəzi hissələri çatmadı. Yenidən yükləyin.", "VALIDATION");
+  });
+  const buf = Buffer.concat(b.chunks.map((c) => Buffer.from(c.data)));
+  if (buf.length !== b.fileSize) throw new AppError("Fayl tam yüklənmədi. Yenidən cəhd edin.", "VALIDATION");
+  await db.importBatch.delete({ where: { id: uploadId } }); // chunks cascade
+  return uploadImport(actor, b.fileName, buf);
+}
+
 async function loadGrid(batchId: string, sheetName: string): Promise<Grid> {
   const b = await db.importBatch.findUnique({ where: { id: batchId } });
   if (!b) throw new NotFoundError("Import paketi");
-  const buf = await readFile(b.storagePath).catch(() => {
-    throw new AppError("Yüklənmiş fayl serverdə tapılmadı. Faylı yenidən yükləyin.");
-  });
-  const wb = await readWorkbook(buf);
+  if (!b.fileData) throw new AppError("Yüklənmiş fayl tapılmadı. Faylı yenidən yükləyin.");
+  const wb = await readWorkbook(Buffer.from(b.fileData));
   const ws = wb.getWorksheet(sheetName);
   if (!ws) throw new AppError(`Vərəq tapılmadı: ${sheetName}`);
   return sheetToGrid(ws);

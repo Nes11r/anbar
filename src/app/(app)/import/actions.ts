@@ -1,6 +1,6 @@
 "use server";
 import { runAction } from "@/lib/action";
-import { commitBatch, parseBatch, rollbackBatch, setRowAction, uploadImport, type ImportMapping } from "@/server/import/service";
+import { appendChunk, beginChunkedUpload, commitBatch, finishChunkedUpload, parseBatch, rollbackBatch, setRowAction, uploadImport, type ImportMapping } from "@/server/import/service";
 import { AppError } from "@/lib/errors";
 
 export async function uploadAction(fd: FormData) {
@@ -11,6 +11,21 @@ export async function uploadAction(fd: FormData) {
     return { id: b.id, redirect: `/import/${b.id}` };
   }, { revalidate: ["/import"], message: "Fayl yükləndi. Vərəqi və məlumat növünü seçin." });
 }
+export async function beginUploadAction(fileName: string, size: number) {
+  return runAction("import.run", (a) => beginChunkedUpload(a, fileName, size));
+}
+export async function chunkAction(uploadId: string, idx: number, fd: FormData) {
+  return runAction("import.run", async (a) => {
+    const c = fd.get("chunk");
+    if (!(c instanceof Blob)) throw new AppError("Fayl hissəsi çatmadı.", "VALIDATION");
+    await appendChunk(a, uploadId, idx, Buffer.from(await c.arrayBuffer()));
+    return { idx };
+  });
+}
+export async function finishUploadAction(uploadId: string) {
+  return runAction("import.run", (a) => finishChunkedUpload(a, uploadId).then((b) => ({ id: b.id, redirect: `/import/${b.id}` })), { revalidate: ["/import"], message: "Fayl yükləndi. Vərəqi və məlumat növünü seçin." });
+}
+
 export async function parseAction(batchId: string, mapping: ImportMapping) {
   return runAction("import.run", (a) => parseBatch(a, batchId, mapping), { revalidate: ["/import"], message: (r) => `${r.rows} sətir oxundu. Xəbərdarlıqları yoxlayın.` });
 }

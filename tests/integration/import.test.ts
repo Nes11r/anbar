@@ -3,7 +3,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import type { Actor } from "@/server/audit";
-import { commitBatch, parseBatch, rollbackBatch, sheetPreview, suggestMapping, uploadImport, type RowIssue } from "@/server/import/service";
+import { appendChunk, beginChunkedUpload, commitBatch, finishChunkedUpload, parseBatch, rollbackBatch, sheetPreview, suggestMapping, uploadImport, type RowIssue } from "@/server/import/service";
 import { projectionMismatches } from "@/server/services/reports";
 import { baseData, makeUser, resetDb } from "./helpers";
 
@@ -23,6 +23,25 @@ describe.skipIf(!has)("Excel import (real source workbook, read-only)", () => {
     const b = await uploadImport(wm, "ANBAR 21.07.2026 - Amir.xlsm", readFileSync(SRC));
     batchId = b.id;
     expect(b.sheetNames).toContain("Total");
+  });
+
+  it("large file is uploaded in pieces (hosting body limit) and stored in the database", async () => {
+    const buf = readFileSync(SRC);
+    const { uploadId } = await beginChunkedUpload(wm, "ANBAR.xlsm", buf.length);
+    const CH = 3.5 * 1024 * 1024;
+    const parts = Math.ceil(buf.length / CH);
+    expect(parts).toBeGreaterThan(1);
+    for (let i = parts - 1; i >= 0; i--) await appendChunk(wm, uploadId, i, buf.subarray(i * CH, Math.min(buf.length, (i + 1) * CH))); // order does not matter
+    const b = await finishChunkedUpload(wm, uploadId);
+    expect(b.sheetNames).toContain("Total");
+    expect((await db.importBatch.findUniqueOrThrow({ where: { id: b.id } })).fileData?.length).toBe(buf.length);
+    expect(await db.importChunk.count()).toBe(0);
+    const p = await sheetPreview(b.id, "Total");
+    expect(p.headerRow).toBe(1);
+    // missing piece → refused
+    const u2 = await beginChunkedUpload(wm, "x.xlsm", buf.length);
+    await appendChunk(wm, u2.uploadId, 0, buf.subarray(0, CH));
+    await expect(finishChunkedUpload(wm, u2.uploadId)).rejects.toThrow(/tam yüklənmədi|çatmadı/);
   });
 
   it("summary sheets (Common) are detected and never become stock or history", async () => {

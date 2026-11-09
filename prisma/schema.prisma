@@ -6,8 +6,11 @@ generator client {
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
+  provider  = "postgresql"
+  /// Runtime (Neon: the *pooled* connection string)
+  url       = env("DATABASE_URL")
+  /// Migrations (Neon: the *direct* connection string). Locally the same as DATABASE_URL.
+  directUrl = env("DIRECT_URL")
 }
 
 // ───────────────────────── Enums ─────────────────────────
@@ -813,7 +816,11 @@ model ImportBatch {
   options      Json?
   status       ImportStatus   @default(UPLOADED)
   stats        Json?
-  storagePath  String
+  /// Legacy path (pre-Vercel). New uploads keep the file in fileData.
+  storagePath  String         @default("")
+  /// Uploaded workbook bytes (serverless hosting has no persistent disk)
+  fileData     Bytes?
+  chunks       ImportChunk[]
   createdById  String         @db.Uuid
   committedAt  DateTime?
   committedBy  String?        @db.Uuid
@@ -943,4 +950,15 @@ model SiteReportLine {
 
   @@unique([reportId, variantId])
   @@map("site_report_lines")
+}
+
+/// Temporary pieces of a large upload (hosting limits one request to ~4.5 MB). Assembled, then deleted.
+model ImportChunk {
+  batchId String      @db.Uuid
+  batch   ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  idx     Int
+  data    Bytes
+
+  @@id([batchId, idx])
+  @@map("import_chunks")
 }

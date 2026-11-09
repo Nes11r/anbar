@@ -24,7 +24,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Self-hosting (Docker) uses the standalone server; Vercel builds Next.js natively.
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["exceljs", "bcryptjs"],
